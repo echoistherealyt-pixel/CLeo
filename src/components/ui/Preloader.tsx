@@ -1,110 +1,233 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import CleoLogo from "./CleoLogo";
 
-interface PreloaderProps {
-  onComplete: () => void;
-}
+export default function Preloader({ onComplete }: { onComplete: () => void }) {
+  const [phase, setPhase] = useState<"counting" | "reveal" | "done">("counting");
+  const [progress, setProgress] = useState(0);
+  const [letterVisible, setLetterVisible] = useState([false, false, false, false]);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animRef = useRef<number>(0);
 
-interface Particle {
-  width: number;
-  height: number;
-  left: string;
-  top: string;
-  opacity: number;
-  color: string;
-  duration: number;
-  delay: number;
-}
-
-export default function Preloader({ onComplete }: PreloaderProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const progressRef = useRef<HTMLDivElement>(null);
-  const percentRef = useRef<HTMLSpanElement>(null);
-  const [particles, setParticles] = useState<Particle[]>([]);
-
+  // Canvas particle burst
   useEffect(() => {
-    const generated: Particle[] = Array.from({ length: 40 }).map((_, i) => ({
-      width: Math.random() * 3 + 1,
-      height: Math.random() * 3 + 1,
-      left: Math.random() * 100 + "%",
-      top: Math.random() * 100 + "%",
-      opacity: Math.random() * 0.6 + 0.1,
-      color: i % 2 === 0 ? "#7B2FFF" : "#C9A96E",
-      duration: Math.random() * 4 + 3,
-      delay: Math.random() * 2,
-    }));
-    setParticles(generated);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const particles: { x: number; y: number; vx: number; vy: number; life: number; color: string; size: number }[] = [];
+    let started = false;
+
+    const spawnBurst = () => {
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      for (let i = 0; i < 120; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 8 + 2;
+        particles.push({
+          x: cx, y: cy,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 1,
+          color: Math.random() > 0.5 ? "#7B2FFF" : "#C9A96E",
+          size: Math.random() * 3 + 1,
+        });
+      }
+      started = true;
+    };
+
+    const draw = () => {
+      ctx.fillStyle = "rgba(6,6,8,0.15)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (started) {
+        particles.forEach((p, i) => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.12;
+          p.vx *= 0.98;
+          p.life -= 0.018;
+
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+          ctx.fillStyle = p.color;
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = p.color;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        });
+        ctx.globalAlpha = 1;
+      }
+
+      animRef.current = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    // Expose burst trigger
+    (window as any).__preloaderBurst = spawnBurst;
+    return () => {
+      cancelAnimationFrame(animRef.current);
+      delete (window as any).__preloaderBurst;
+    };
   }, []);
 
+  // Progress counter
   useEffect(() => {
-    const duration = 2800;
-    const startTime = performance.now();
+    const duration = 2200;
+    const start = performance.now();
 
-    const animate = (now: number) => {
-      const elapsed = now - startTime;
-      const ratio = Math.min(elapsed / duration, 1);
-      const eased = ratio < 0.5
-        ? 2 * ratio * ratio
-        : 1 - Math.pow(-2 * ratio + 2, 2) / 2;
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      const raw = Math.min(elapsed / duration, 1);
+      const eased = raw < 0.5 ? 2 * raw * raw : -1 + (4 - 2 * raw) * raw;
+      const val = Math.floor(eased * 100);
+      setProgress(val);
 
-      const current = Math.floor(eased * 100);
-      if (percentRef.current) percentRef.current.textContent = `${current}%`;
-      if (progressRef.current) progressRef.current.style.width = `${current}%`;
+      // Stagger letter reveals
+      if (val >= 20) setLetterVisible(p => [true, p[1], p[2], p[3]]);
+      if (val >= 45) setLetterVisible(p => [p[0], true, p[2], p[3]]);
+      if (val >= 68) setLetterVisible(p => [p[0], p[1], true, p[3]]);
+      if (val >= 88) setLetterVisible(p => [p[0], p[1], p[2], true]);
 
-      if (ratio < 1) {
-        requestAnimationFrame(animate);
+      if (raw < 1) {
+        requestAnimationFrame(tick);
       } else {
+        setProgress(100);
+        // Trigger burst
         setTimeout(() => {
-          if (containerRef.current) {
-            containerRef.current.style.transition = "opacity 0.8s ease, transform 0.8s ease";
-            containerRef.current.style.opacity = "0";
-            containerRef.current.style.transform = "scale(1.05)";
-          }
-          setTimeout(onComplete, 800);
-        }, 400);
+          (window as any).__preloaderBurst?.();
+          setPhase("reveal");
+        }, 180);
+        setTimeout(() => {
+          setPhase("done");
+          onComplete();
+        }, 1100);
       }
     };
 
-    requestAnimationFrame(animate);
+    requestAnimationFrame(tick);
   }, [onComplete]);
 
-  return (
-    <div ref={containerRef} style={{ position: "fixed", inset: 0, background: "#0a0a0f", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 9999, overflow: "hidden" }}>
+  if (phase === "done") return null;
 
-      {/* Particles */}
-      <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
-        {particles.map((p, i) => (
-          <div key={i} style={{ position: "absolute", width: p.width + "px", height: p.height + "px", borderRadius: "50%", background: p.color, left: p.left, top: p.top, opacity: p.opacity, animation: `float ${p.duration}s ease-in-out infinite alternate`, animationDelay: p.delay + "s" }} />
+  const letters = ["C", "L", "E", "O"];
+  const letterColors = ["#7B2FFF", "#9B4FFF", "#B87FFF", "#C9A96E"];
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      background: "#060608",
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      opacity: phase === "reveal" ? 0 : 1,
+      transform: phase === "reveal" ? "scale(1.04)" : "scale(1)",
+      transition: phase === "reveal" ? "opacity 0.75s ease, transform 0.75s ease" : "none",
+      pointerEvents: phase === "reveal" ? "none" : "all",
+    }}>
+      {/* Canvas for particles */}
+      <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
+
+      {/* Ambient glow */}
+      <div style={{
+        position: "absolute", top: "50%", left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: "600px", height: "600px",
+        background: "radial-gradient(ellipse, rgba(123,47,255,0.08), transparent 65%)",
+        pointerEvents: "none",
+        animation: "preloaderPulse 2s ease-in-out infinite",
+      }} />
+
+      {/* Logo letters */}
+      <div style={{
+        position: "relative", zIndex: 1,
+        display: "flex", gap: "4px", marginBottom: "60px",
+      }}>
+        {letters.map((letter, i) => (
+          <span key={i} style={{
+            fontFamily: "'Palatino Linotype', Georgia, serif",
+            fontSize: "clamp(4rem, 12vw, 8rem)",
+            fontWeight: 400,
+            color: letterColors[i],
+            letterSpacing: "0.08em",
+            filter: letterVisible[i] ? `drop-shadow(0 0 24px ${letterColors[i]}88)` : "none",
+            opacity: letterVisible[i] ? 1 : 0,
+            transform: letterVisible[i] ? "translateY(0) scale(1)" : "translateY(20px) scale(0.92)",
+            transition: `all 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${i * 0.05}s`,
+            display: "inline-block",
+          }}>
+            {letter}
+          </span>
         ))}
       </div>
 
-      {/* Logo — no rings since it's now a wordmark */}
-      <div style={{ marginBottom: "48px", animation: "fadeIn 1s ease forwards" }}>
-        <CleoLogo width={280} />
-      </div>
-
-      {/* Tagline */}
-      <div style={{ fontFamily: "'Courier New', monospace", fontSize: "10px", color: "#7B2FFF", letterSpacing: "0.3em", marginBottom: "60px", opacity: 0, animation: "fadeIn 1s ease 0.5s forwards" }}>
-        CRAFTING DIGITAL MAGIC
-      </div>
-
       {/* Progress bar */}
-      <div style={{ width: "240px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px", fontFamily: "'Courier New', monospace", fontSize: "11px", color: "#F0EEF6", opacity: 0.5 }}>
-          <span>Loading experience</span>
-          <span ref={percentRef}>0%</span>
+      <div style={{ position: "relative", zIndex: 1, width: "clamp(200px, 40vw, 340px)" }}>
+        {/* Track */}
+        <div style={{
+          width: "100%", height: "1px",
+          background: "rgba(255,255,255,0.06)",
+          borderRadius: "1px", overflow: "hidden",
+          marginBottom: "20px",
+        }}>
+          <div style={{
+            height: "100%",
+            width: `${progress}%`,
+            background: "linear-gradient(90deg, #7B2FFF, #C9A96E)",
+            transition: "width 0.08s linear",
+            boxShadow: "0 0 8px rgba(123,47,255,0.6)",
+          }} />
         </div>
-        <div style={{ width: "100%", height: "1px", background: "rgba(255,255,255,0.1)", position: "relative", overflow: "hidden" }}>
-          <div ref={progressRef} style={{ height: "100%", width: "0%", background: "linear-gradient(90deg, #7B2FFF, #C9A96E)", transition: "width 0.05s linear", boxShadow: "0 0 10px #7B2FFF" }} />
+
+        {/* Counter + label */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{
+            fontFamily: "'Space Mono', monospace",
+            fontSize: "9px", letterSpacing: "0.35em",
+            color: "rgba(240,238,246,0.25)",
+          }}>LOADING EXPERIENCE</span>
+          <span style={{
+            fontFamily: "'Space Mono', monospace",
+            fontSize: "11px", letterSpacing: "0.1em",
+            background: "linear-gradient(90deg, #7B2FFF, #C9A96E)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}>{progress}<span style={{ fontSize: "8px", opacity: 0.7 }}>%</span></span>
         </div>
       </div>
+
+      {/* Decorative diamonds */}
+      <div style={{
+        position: "absolute", bottom: "48px",
+        display: "flex", gap: "10px", alignItems: "center",
+        zIndex: 1,
+      }}>
+        {[0, 1, 2].map(i => (
+          <div key={i} style={{
+            width: "5px", height: "5px",
+            background: i === 1 ? "linear-gradient(135deg, #7B2FFF, #C9A96E)" : "rgba(255,255,255,0.1)",
+            transform: "rotate(45deg)",
+            transition: `all 0.4s ease ${i * 0.15}s`,
+            opacity: progress > 30 + i * 20 ? 1 : 0,
+          }} />
+        ))}
+      </div>
+
+      {/* Cinematic scan line */}
+      <div style={{
+        position: "absolute", inset: 0,
+        backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px)",
+        pointerEvents: "none", zIndex: 0,
+      }} />
 
       <style>{`
-        @keyframes float { from { transform: translateY(0px); } to { transform: translateY(-20px) translateX(10px); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 0.7; transform: translateY(0); } }
-        @keyframes pulse-ring { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+        @keyframes preloaderPulse {
+          0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+          50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+        }
       `}</style>
     </div>
   );
