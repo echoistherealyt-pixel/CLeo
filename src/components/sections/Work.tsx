@@ -1,31 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-type DemoKey = "particles" | "glitch" | "liquid" | "tilt" | "morph" | "audio" | "typewriter" | "palette";
-
-interface DemoConfig {
-  key: DemoKey;
-  icon: string;
-  size?: "normal" | "wide";
-}
-
-// ── Demo configs (static, no text) ───────────────────────────────────────────
-const DEMOS: DemoConfig[] = [
-  { key: "particles", icon: "✦" },
-  { key: "glitch",    icon: "◈" },
-  { key: "liquid",    icon: "◉" },
-  { key: "tilt",      icon: "⬡" },
-  { key: "morph",     icon: "◎", size: "wide" },
-  { key: "audio",     icon: "∿" },
-  { key: "typewriter",icon: "Aa" },
-  { key: "palette",   icon: "◐" },
-];
-
-// ── useReveal ─────────────────────────────────────────────────────────────────
-function useReveal(threshold = 0.1) {
+function useReveal(threshold = 0.08) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -40,58 +18,57 @@ function useReveal(threshold = 0.1) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// DEMO COMPONENTS
+// DEMO COMPONENTS — all new
 // ══════════════════════════════════════════════════════════════════════════════
 
-// ── 1. Particle Network ───────────────────────────────────────────────────────
-function ParticleDemo({ active }: { active: boolean }) {
-  const { t } = useTranslation("common");
+// ── 1. Constellation — click to add stars ────────────────────────────────────
+function ConstellationDemo() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mouseRef = useRef({ x: -999, y: -999 });
-  const animRef = useRef<number>(0);
+  const starsRef  = useRef<{ x: number; y: number; r: number; pulse: number }[]>([]);
+  const animRef   = useRef<number>(0);
+  const { t } = useTranslation("common");
 
   useEffect(() => {
-    if (!active) return;
     const canvas = canvasRef.current!;
-    const ctx = canvas.getContext("2d")!;
-    const W = canvas.width = canvas.offsetWidth;
-    const H = canvas.height = canvas.offsetHeight;
-    const particles = Array.from({ length: 120 }, () => ({
-      x: Math.random() * W, y: Math.random() * H,
-      vx: (Math.random() - 0.5) * 0.6, vy: (Math.random() - 0.5) * 0.6,
-      r: Math.random() * 2 + 1,
-    }));
+    const ctx    = canvas.getContext("2d")!;
+    const resize = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; };
+    resize();
 
-    const onMove = (e: MouseEvent) => {
+    // Seed stars
+    for (let i = 0; i < 30; i++) {
+      starsRef.current.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, r: Math.random() * 1.5 + 0.5, pulse: Math.random() * Math.PI * 2 });
+    }
+
+    const onClick = (e: MouseEvent) => {
       const r = canvas.getBoundingClientRect();
-      mouseRef.current = { x: e.clientX - r.left, y: e.clientY - r.top };
+      for (let i = 0; i < 5; i++) {
+        starsRef.current.push({ x: e.clientX - r.left + (Math.random()-0.5)*20, y: e.clientY - r.top + (Math.random()-0.5)*20, r: Math.random() * 2 + 0.8, pulse: Math.random() * Math.PI * 2 });
+      }
+      if (starsRef.current.length > 120) starsRef.current.splice(0, 5);
     };
-    canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("click", onClick);
 
+    let t2 = 0;
     const draw = () => {
-      ctx.clearRect(0, 0, W, H);
-      const mouse = mouseRef.current;
-      particles.forEach(p => {
-        const dx = mouse.x - p.x, dy = mouse.y - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 120) { p.vx -= dx / dist * 0.3; p.vy -= dy / dist * 0.3; }
-        p.vx *= 0.98; p.vy *= 0.98;
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
-        if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      t2 += 0.02;
+      starsRef.current.forEach(s => {
+        s.pulse += 0.03;
+        const brightness = 0.4 + Math.sin(s.pulse) * 0.3;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(123,47,255,${0.5 + p.r * 0.1})`;
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(240,238,246,${brightness})`;
         ctx.fill();
       });
-      particles.forEach((a, i) => {
-        particles.slice(i + 1).forEach(b => {
+      // Lines between close stars
+      starsRef.current.forEach((a, i) => {
+        starsRef.current.slice(i+1).forEach(b => {
           const dx = a.x - b.x, dy = a.y - b.y;
-          const d = Math.sqrt(dx * dx + dy * dy);
-          if (d < 90) {
+          const d = Math.sqrt(dx*dx + dy*dy);
+          if (d < 100) {
             ctx.beginPath();
             ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-            ctx.strokeStyle = `rgba(201,169,110,${(1 - d / 90) * 0.35})`;
+            ctx.strokeStyle = `rgba(123,47,255,${(1 - d/100) * 0.5})`;
             ctx.lineWidth = 0.5; ctx.stroke();
           }
         });
@@ -99,371 +76,729 @@ function ParticleDemo({ active }: { active: boolean }) {
       animRef.current = requestAnimationFrame(draw);
     };
     draw();
-    return () => { cancelAnimationFrame(animRef.current); canvas.removeEventListener("mousemove", onMove); };
-  }, [active]);
+    return () => { cancelAnimationFrame(animRef.current); canvas.removeEventListener("click", onClick); };
+  }, []);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
-      <div style={{ position: "absolute", bottom: "12px", left: "50%", transform: "translateX(-50%)", fontFamily: "'Space Mono', monospace", fontSize: "8px", letterSpacing: "0.3em", color: "rgba(201,169,110,0.5)" }}>{t("work.moveYourCursor")}</div>
-    </div>
-  );
-}
-
-// ── 2. Glitch Typography ──────────────────────────────────────────────────────
-function GlitchDemo({ active }: { active: boolean }) {
-  const { t } = useTranslation("common");
-  const [glitching, setGlitching] = useState(false);
-  const word = "CLEO";
-
-  const triggerGlitch = () => {
-    setGlitching(true);
-    setTimeout(() => setGlitching(false), 800);
-  };
-
-  return (
-    <div onClick={triggerGlitch} style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", gap: "20px" }}>
-      <div style={{ position: "relative", userSelect: "none" }}>
-        <span style={{ fontFamily: "Georgia, serif", fontSize: "clamp(3rem, 8vw, 5rem)", fontStyle: "italic", color: "#F0EEF6", letterSpacing: "0.1em", display: "block", textShadow: glitching ? "3px 0 #7B2FFF, -3px 0 #C9A96E" : "none", animation: glitching ? "glitch 0.1s infinite" : "none" }}>{word}</span>
-        {glitching && <>
-          <span style={{ position: "absolute", inset: 0, fontFamily: "Georgia, serif", fontSize: "clamp(3rem, 8vw, 5rem)", fontStyle: "italic", color: "#7B2FFF", opacity: 0.7, letterSpacing: "0.1em", clipPath: "inset(30% 0 50% 0)", transform: "translateX(-4px)", animation: "glitch2 0.15s infinite" }}>{word}</span>
-          <span style={{ position: "absolute", inset: 0, fontFamily: "Georgia, serif", fontSize: "clamp(3rem, 8vw, 5rem)", fontStyle: "italic", color: "#C9A96E", opacity: 0.7, letterSpacing: "0.1em", clipPath: "inset(60% 0 10% 0)", transform: "translateX(4px)", animation: "glitch3 0.12s infinite" }}>{word}</span>
-        </>}
+      <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block", cursor: "crosshair" }} />
+      <div style={{ position: "absolute", bottom: "12px", left: "50%", transform: "translateX(-50%)", fontFamily: "'Space Mono', monospace", fontSize: "7px", letterSpacing: "0.35em", color: "rgba(201,169,110,0.45)", whiteSpace: "nowrap" }}>
+        {t("work.clickToAdd")}
       </div>
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "8px", letterSpacing: "0.35em", color: "rgba(240,238,246,0.3)" }}>{t("work.clickToGlitch")}</div>
-      <style>{`
-        @keyframes glitch { 0%,100%{transform:none} 25%{transform:translate(-2px,1px)} 75%{transform:translate(2px,-1px)} }
-        @keyframes glitch2 { 0%,100%{clip-path:inset(30% 0 50% 0)} 50%{clip-path:inset(10% 0 70% 0)} }
-        @keyframes glitch3 { 0%,100%{clip-path:inset(60% 0 10% 0)} 50%{clip-path:inset(75% 0 5% 0)} }
-      `}</style>
     </div>
   );
 }
 
-// ── 3. Liquid Cursor ──────────────────────────────────────────────────────────
-function LiquidDemo({ active }: { active: boolean }) {
-  const { t } = useTranslation("common");
+// ── 2. Neon Signature — draw with mouse ──────────────────────────────────────
+function SignatureDemo() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const trailRef = useRef<{ x: number; y: number; a: number }[]>([]);
-  const mouseRef = useRef({ x: 0, y: 0 });
-  const animRef = useRef<number>(0);
+  const drawing   = useRef(false);
+  const lastPos   = useRef({ x: 0, y: 0 });
+  const hueRef    = useRef(270);
+  const { t } = useTranslation("common");
 
   useEffect(() => {
-    if (!active) return;
     const canvas = canvasRef.current!;
-    const ctx = canvas.getContext("2d")!;
+    const ctx    = canvas.getContext("2d")!;
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
+    ctx.fillStyle = "transparent";
 
-    const onMove = (e: MouseEvent) => {
+    const getPos = (e: MouseEvent | TouchEvent) => {
       const r = canvas.getBoundingClientRect();
-      mouseRef.current = { x: e.clientX - r.left, y: e.clientY - r.top };
-      trailRef.current.push({ x: mouseRef.current.x, y: mouseRef.current.y, a: 1 });
-      if (trailRef.current.length > 60) trailRef.current.shift();
+      const src = "touches" in e ? e.touches[0] : e;
+      return { x: src.clientX - r.left, y: src.clientY - r.top };
     };
-    canvas.addEventListener("mousemove", onMove);
 
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      trailRef.current = trailRef.current.map(p => ({ ...p, a: p.a * 0.94 })).filter(p => p.a > 0.01);
-      trailRef.current.forEach((p, i) => {
-        const size = (i / trailRef.current.length) * 18 + 2;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(123,47,255,${p.a * 0.4})`;
-        ctx.fill();
-      });
-      if (trailRef.current.length > 2) {
-        ctx.beginPath();
-        ctx.moveTo(trailRef.current[0].x, trailRef.current[0].y);
-        trailRef.current.forEach(p => ctx.lineTo(p.x, p.y));
-        ctx.strokeStyle = `rgba(201,169,110,0.3)`;
-        ctx.lineWidth = 1.5; ctx.stroke();
-      }
-      animRef.current = requestAnimationFrame(draw);
+    const start = (e: MouseEvent | TouchEvent) => {
+      drawing.current = true;
+      lastPos.current = getPos(e);
     };
-    draw();
-    return () => { cancelAnimationFrame(animRef.current); canvas.removeEventListener("mousemove", onMove); };
-  }, [active]);
+    const end = () => { drawing.current = false; };
+    const move = (e: MouseEvent | TouchEvent) => {
+      if (!drawing.current) return;
+      const pos = getPos(e);
+      hueRef.current = (hueRef.current + 1) % 360;
+      ctx.beginPath();
+      ctx.moveTo(lastPos.current.x, lastPos.current.y);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.strokeStyle = `hsl(${hueRef.current}, 90%, 65%)`;
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = ctx.strokeStyle;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      lastPos.current = pos;
+    };
 
-  return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
-      <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", pointerEvents: "none" }}>
-        <div style={{ fontFamily: "Georgia, serif", fontSize: "13px", fontStyle: "italic", color: "rgba(240,238,246,0.2)" }}>{t("work.moveYourCursor")}</div>
-      </div>
-    </div>
-  );
-}
+    canvas.addEventListener("mousedown", start);
+    canvas.addEventListener("mouseup", end);
+    canvas.addEventListener("mousemove", move);
+    canvas.addEventListener("mouseleave", end);
 
-// ── 4. 3D Card Tilt ───────────────────────────────────────────────────────────
-function TiltDemo({ active }: { active: boolean }) {
-  const { t } = useTranslation("common");
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const [hovered, setHovered] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+    return () => {
+      canvas.removeEventListener("mousedown", start);
+      canvas.removeEventListener("mouseup", end);
+      canvas.removeEventListener("mousemove", move);
+      canvas.removeEventListener("mouseleave", end);
+    };
+  }, []);
 
-  const onMove = (e: React.MouseEvent) => {
-    const r = cardRef.current?.getBoundingClientRect();
-    if (!r) return;
-    setTilt({ x: ((e.clientY - r.top) / r.height - 0.5) * -30, y: ((e.clientX - r.left) / r.width - 0.5) * 30 });
+  const clear = () => {
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext("2d")!;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div ref={cardRef} onMouseMove={onMove} onMouseEnter={() => setHovered(true)} onMouseLeave={() => { setHovered(false); setTilt({ x: 0, y: 0 }); }}
-        style={{ width: "200px", height: "260px", borderRadius: "16px", background: "linear-gradient(135deg, rgba(123,47,255,0.2), rgba(201,169,110,0.1))", border: "1px solid rgba(123,47,255,0.4)", cursor: "pointer", transition: hovered ? "none" : "transform 0.6s ease", transform: `perspective(600px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`, boxShadow: hovered ? "0 40px 100px rgba(0,0,0,0.7), 0 0 60px rgba(123,47,255,0.2)" : "0 10px 40px rgba(0,0,0,0.4)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px", padding: "32px", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: "-20px", right: "-20px", width: "100px", height: "100px", background: "radial-gradient(circle, rgba(201,169,110,0.15), transparent 70%)", borderRadius: "50%", transform: `translate(${tilt.y * 0.5}px, ${tilt.x * 0.5}px)`, transition: hovered ? "transform 0.05s" : "transform 0.6s" }} />
-        <span style={{ fontSize: "36px", filter: "drop-shadow(0 0 12px #7B2FFF)" }}>⬡</span>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "9px", letterSpacing: "0.25em", color: "#C9A96E" }}>CLEO STUDIO</div>
-        <div style={{ width: "40px", height: "1px", background: "linear-gradient(90deg, transparent, #7B2FFF, transparent)" }} />
-        <div style={{ fontFamily: "Georgia, serif", fontSize: "11px", fontStyle: "italic", color: "rgba(240,238,246,0.5)", textAlign: "center", lineHeight: 1.6 }}>Digital Creative Studio</div>
+    <div style={{ position: "relative", width: "100%", height: "100%", background: "rgba(4,4,8,0.6)" }}>
+      <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block", cursor: "crosshair" }} />
+      <div style={{ position: "absolute", bottom: "12px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "16px", alignItems: "center" }}>
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "7px", letterSpacing: "0.35em", color: "rgba(240,238,246,0.35)" }}>{t("work.drawHere")}</span>
+        <button onClick={clear} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(240,238,246,0.4)", fontFamily: "'Space Mono', monospace", fontSize: "7px", letterSpacing: "0.2em", padding: "3px 10px", borderRadius: "2px", cursor: "pointer" }}>
+          {t("work.clear")}
+        </button>
       </div>
-      <div style={{ position: "absolute", bottom: "16px", left: "50%", transform: "translateX(-50%)", fontFamily: "'Space Mono', monospace", fontSize: "8px", letterSpacing: "0.3em", color: "rgba(240,238,246,0.25)" }}>{t("work.hoverCard")}</div>
     </div>
   );
 }
 
-// ── 5. Morphing Gradient ──────────────────────────────────────────────────────
-function MorphDemo({ active }: { active: boolean }) {
-  const { t } = useTranslation("common");
+// ── 3. Gravity Orbs — drag and release ───────────────────────────────────────
+function GravityDemo() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animRef = useRef<number>(0);
+  const animRef   = useRef<number>(0);
+  const orbs = useRef<{ x: number; y: number; vx: number; vy: number; r: number; color: string; hue: number }[]>([]);
+  const dragging = useRef<number | null>(null);
+  const lastMouse = useRef({ x: 0, y: 0 });
+  const { t } = useTranslation("common");
 
   useEffect(() => {
-    if (!active) return;
     const canvas = canvasRef.current!;
-    const ctx = canvas.getContext("2d")!;
+    const ctx    = canvas.getContext("2d")!;
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
     const W = canvas.width, H = canvas.height;
 
-    const orbs = [
-      { x: W * 0.3, y: H * 0.4, vx: 0.4, vy: 0.3, r: W * 0.35, color: "123,47,255" },
-      { x: W * 0.7, y: H * 0.5, vx: -0.3, vy: 0.5, r: W * 0.3, color: "201,169,110" },
-      { x: W * 0.5, y: H * 0.3, vx: 0.2, vy: -0.4, r: W * 0.25, color: "168,85,247" },
+    orbs.current = [
+      { x: W*0.3, y: H*0.5, vx: 1.2, vy: -0.8, r: 28, color: "#7B2FFF", hue: 270 },
+      { x: W*0.7, y: H*0.4, vx: -0.8, vy: 1.0, r: 22, color: "#C9A96E", hue: 40 },
+      { x: W*0.5, y: H*0.6, vx: 0.5, vy: -1.2, r: 18, color: "#A855F7", hue: 290 },
     ];
 
-    let t = 0;
+    const getPos = (e: MouseEvent) => ({ x: e.offsetX, y: e.offsetY });
+
+    const onDown = (e: MouseEvent) => {
+      const p = getPos(e);
+      orbs.current.forEach((o, i) => {
+        const dx = p.x - o.x, dy = p.y - o.y;
+        if (Math.sqrt(dx*dx + dy*dy) < o.r + 8) dragging.current = i;
+      });
+    };
+    const onUp = (e: MouseEvent) => {
+      if (dragging.current !== null) {
+        const p = getPos(e);
+        orbs.current[dragging.current].vx = (p.x - lastMouse.current.x) * 0.4;
+        orbs.current[dragging.current].vy = (p.y - lastMouse.current.y) * 0.4;
+      }
+      dragging.current = null;
+    };
+    const onMove = (e: MouseEvent) => {
+      const p = getPos(e);
+      if (dragging.current !== null) {
+        orbs.current[dragging.current].x = p.x;
+        orbs.current[dragging.current].y = p.y;
+        orbs.current[dragging.current].vx = 0;
+        orbs.current[dragging.current].vy = 0;
+      }
+      lastMouse.current = p;
+    };
+
+    canvas.addEventListener("mousedown", onDown);
+    canvas.addEventListener("mouseup",   onUp);
+    canvas.addEventListener("mousemove", onMove);
+
     const draw = () => {
       ctx.clearRect(0, 0, W, H);
-      orbs.forEach(orb => {
-        orb.x += orb.vx; orb.y += orb.vy;
-        if (orb.x < 0 || orb.x > W) orb.vx *= -1;
-        if (orb.y < 0 || orb.y > H) orb.vy *= -1;
-        const grad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r);
-        grad.addColorStop(0, `rgba(${orb.color},0.25)`);
-        grad.addColorStop(1, `rgba(${orb.color},0)`);
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(orb.x, orb.y, orb.r, 0, Math.PI * 2);
-        ctx.fill();
+      // Gravity + bounce
+      orbs.current.forEach((o, i) => {
+        if (i === dragging.current) return;
+        // Attract to center gently
+        o.vx += (W/2 - o.x) * 0.0002;
+        o.vy += (H/2 - o.y) * 0.0002;
+        // Orb-to-orb repulsion
+        orbs.current.forEach((b, j) => {
+          if (i === j) return;
+          const dx = o.x - b.x, dy = o.y - b.y;
+          const d  = Math.sqrt(dx*dx + dy*dy);
+          if (d < (o.r + b.r + 10)) {
+            o.vx += (dx / d) * 0.5;
+            o.vy += (dy / d) * 0.5;
+          }
+        });
+        o.vx *= 0.995; o.vy *= 0.995;
+        o.x += o.vx; o.y += o.vy;
+        if (o.x - o.r < 0) { o.x = o.r; o.vx *= -0.8; }
+        if (o.x + o.r > W) { o.x = W - o.r; o.vx *= -0.8; }
+        if (o.y - o.r < 0) { o.y = o.r; o.vy *= -0.8; }
+        if (o.y + o.r > H) { o.y = H - o.r; o.vy *= -0.8; }
       });
-      t++;
+
+      // Draw connections
+      orbs.current.forEach((a, i) => {
+        orbs.current.slice(i+1).forEach(b => {
+          const dx = a.x-b.x, dy = a.y-b.y;
+          const d = Math.sqrt(dx*dx + dy*dy);
+          if (d < 180) {
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+            const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+            grad.addColorStop(0, a.color + "66");
+            grad.addColorStop(1, b.color + "66");
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = (1 - d/180) * 3;
+            ctx.stroke();
+          }
+        });
+      });
+
+      // Draw orbs
+      orbs.current.forEach(o => {
+        const grad = ctx.createRadialGradient(o.x - o.r*0.3, o.y - o.r*0.3, 0, o.x, o.y, o.r);
+        grad.addColorStop(0, o.color + "ff");
+        grad.addColorStop(1, o.color + "44");
+        ctx.beginPath();
+        ctx.arc(o.x, o.y, o.r, 0, Math.PI*2);
+        ctx.fillStyle = grad;
+        ctx.shadowBlur = 24;
+        ctx.shadowColor = o.color;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+
+      animRef.current = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => {
+      cancelAnimationFrame(animRef.current);
+      canvas.removeEventListener("mousedown", onDown);
+      canvas.removeEventListener("mouseup",   onUp);
+      canvas.removeEventListener("mousemove", onMove);
+    };
+  }, []);
+
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block", cursor: "grab" }} />
+      <div style={{ position: "absolute", bottom: "12px", left: "50%", transform: "translateX(-50%)", fontFamily: "'Space Mono', monospace", fontSize: "7px", letterSpacing: "0.35em", color: "rgba(201,169,110,0.45)", whiteSpace: "nowrap" }}>
+        {t("work.dragOrbs")}
+      </div>
+    </div>
+  );
+}
+
+// ── 4. Waveform Synthesizer ──────────────────────────────────────────────────
+function WaveDemo() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animRef   = useRef<number>(0);
+  const [freq,  setFreq ] = useState(2);
+  const [amp,   setAmp  ] = useState(50);
+  const [speed, setSpeed] = useState(1);
+  const tRef = useRef(0);
+  const { t } = useTranslation("common");
+
+  useEffect(() => {
+    const canvas = canvasRef.current!;
+    const ctx    = canvas.getContext("2d")!;
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    const W = canvas.width, H = canvas.height;
+
+    const draw = () => {
+      ctx.clearRect(0, 0, W, H);
+      tRef.current += 0.03 * speed;
+
+      // Grid
+      ctx.strokeStyle = "rgba(123,47,255,0.06)";
+      ctx.lineWidth = 1;
+      for (let x = 0; x < W; x += 40) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      }
+      for (let y = 0; y < H; y += 40) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+
+      // Center line
+      ctx.strokeStyle = "rgba(240,238,246,0.06)";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, H/2); ctx.lineTo(W, H/2); ctx.stroke();
+
+      // Wave 1
+      const grad1 = ctx.createLinearGradient(0, 0, W, 0);
+      grad1.addColorStop(0,   "rgba(123,47,255,0)");
+      grad1.addColorStop(0.3, "rgba(123,47,255,0.9)");
+      grad1.addColorStop(0.7, "rgba(201,169,110,0.9)");
+      grad1.addColorStop(1,   "rgba(201,169,110,0)");
+
+      ctx.beginPath();
+      for (let x = 0; x <= W; x++) {
+        const y = H/2 + Math.sin((x / W) * Math.PI * 2 * freq + tRef.current) * amp
+                      + Math.sin((x / W) * Math.PI * 2 * freq * 2 + tRef.current * 1.3) * (amp * 0.3);
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = grad1;
+      ctx.lineWidth = 2.5;
+      ctx.shadowBlur = 16;
+      ctx.shadowColor = "#7B2FFF";
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Wave 2 (echo)
+      ctx.beginPath();
+      for (let x = 0; x <= W; x++) {
+        const y = H/2 + Math.sin((x / W) * Math.PI * 2 * freq + tRef.current - 0.5) * (amp * 0.5)
+                      + Math.sin((x / W) * Math.PI * 2 * freq * 1.5 + tRef.current * 0.7) * (amp * 0.2);
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = "rgba(168,85,247,0.3)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
       animRef.current = requestAnimationFrame(draw);
     };
     draw();
     return () => cancelAnimationFrame(animRef.current);
-  }, [active]);
+  }, [freq, amp, speed]);
+
+  const Slider = ({ label, value, min, max, step, onChange }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void }) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1 }}>
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "7px", letterSpacing: "0.2em", color: "rgba(240,238,246,0.35)" }}>{label}</span>
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "7px", color: "#C9A96E" }}>{value}</span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        style={{ width: "100%", accentColor: "#7B2FFF", cursor: "pointer" }} />
+    </div>
+  );
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
-      <div style={{ position: "absolute", bottom: "12px", left: "50%", transform: "translateX(-50%)", fontFamily: "'Space Mono', monospace", fontSize: "8px", letterSpacing: "0.3em", color: "rgba(201,169,110,0.4)" }}>{t("work.liveRender")}</div>
+    <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%" }}>
+      <div style={{ flex: 1, position: "relative" }}>
+        <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
+      </div>
+      <div style={{ display: "flex", gap: "16px", padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.05)", background: "rgba(4,4,8,0.6)" }}>
+        <Slider label={t("work.freq")} value={freq} min={1} max={8} step={0.5} onChange={setFreq} />
+        <Slider label={t("work.amp")}  value={amp}  min={10} max={90} step={5}  onChange={setAmp} />
+        <Slider label={t("work.spd")}  value={speed} min={0.2} max={4} step={0.2} onChange={setSpeed} />
+      </div>
     </div>
   );
 }
 
-// ── 6. Audio Visualizer ───────────────────────────────────────────────────────
-function AudioDemo({ active }: { active: boolean }) {
+// ── 5. Glitch Portrait ───────────────────────────────────────────────────────
+function GlitchDemo() {
+  const [intensity, setIntensity] = useState(0);
+  const [active, setActive] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const word = "CLEO";
   const { t } = useTranslation("common");
-  const [playing, setPlaying] = useState(false);
-  const animRef = useRef<number>(0);
-  const barsRef = useRef<(HTMLDivElement | null)[]>([]);
-  const timeRef = useRef(0);
 
-  useEffect(() => {
-    if (!active || !playing) { cancelAnimationFrame(animRef.current); return; }
-    const animate = () => {
-      timeRef.current += 0.05;
-      barsRef.current.forEach((bar, i) => {
-        if (!bar) return;
-        const h = 20 + Math.abs(Math.sin(timeRef.current * 1.5 + i * 0.4) * 60) + Math.abs(Math.sin(timeRef.current * 0.8 + i * 0.2) * 30);
-        bar.style.height = `${h}px`;
-        const ratio = h / 110;
-        bar.style.background = `linear-gradient(180deg, rgb(${Math.round(123 + ratio * 78)},${Math.round(47 + ratio * 122)},255), #7B2FFF)`;
-      });
-      animRef.current = requestAnimationFrame(animate);
-    };
-    animate();
-    return () => cancelAnimationFrame(animRef.current);
-  }, [active, playing]);
+  const triggerGlitch = useCallback(() => {
+    let count = 0;
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      setIntensity(Math.random());
+      count++;
+      if (count > 20) { if (intervalRef.current) clearInterval(intervalRef.current); setIntensity(0); }
+    }, 40);
+  }, []);
+
+  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
+
+  const slices = Array.from({ length: 8 }, (_, i) => i);
 
   return (
-    <div onClick={() => setPlaying(p => !p)} style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "24px", cursor: "pointer" }}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: "4px", height: "110px" }}>
-        {Array.from({ length: 32 }).map((_, i) => (
-          <div key={i} ref={el => { barsRef.current[i] = el; }}
-            style={{ width: "6px", height: "20px", background: "#7B2FFF", borderRadius: "3px 3px 0 0", transition: playing ? "none" : "height 0.5s ease", opacity: 0.8 }} />
+    <div onMouseEnter={() => { setActive(true); triggerGlitch(); }} onMouseLeave={() => setActive(false)}
+      onClick={triggerGlitch}
+      style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative", overflow: "hidden" }}>
+
+      {/* Scanlines */}
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none", zIndex: 2,
+        backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px)",
+        opacity: intensity * 0.8,
+      }} />
+
+      {/* RGB offset layers */}
+      <div style={{ position: "relative", userSelect: "none" }}>
+        {["#FF003C", "#00FFCC", "#7B2FFF"].map((color, i) => (
+          <span key={i} style={{
+            position: i === 0 ? "relative" : "absolute",
+            inset: i === 0 ? undefined : 0,
+            fontFamily: "Georgia, serif",
+            fontSize: "clamp(3.5rem, 10vw, 6rem)",
+            fontStyle: "italic",
+            color: i === 0 ? "#F0EEF6" : color,
+            opacity: i === 0 ? 1 : intensity * 0.6,
+            letterSpacing: "0.08em",
+            display: "block",
+            transform: i === 1 ? `translate(${intensity * 8}px, ${intensity * -2}px)`
+                      : i === 2 ? `translate(${intensity * -6}px, ${intensity * 3}px)`
+                      : "none",
+            mixBlendMode: i === 0 ? "normal" : "screen",
+            transition: "none",
+          }}>
+            {word}
+          </span>
+        ))}
+
+        {/* Glitch slices */}
+        {intensity > 0.3 && slices.map(i => (
+          <div key={i} style={{
+            position: "absolute",
+            top: `${i * 12.5}%`, left: 0, right: 0,
+            height: `${Math.random() * 8 + 4}%`,
+            background: "#F0EEF6",
+            opacity: Math.random() * 0.05,
+            transform: `translateX(${(Math.random()-0.5) * intensity * 30}px)`,
+            mixBlendMode: "overlay",
+            pointerEvents: "none",
+          }} />
         ))}
       </div>
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "8px", letterSpacing: "0.3em", color: "rgba(240,238,246,0.3)" }}>
-        {playing ? t("work.playing") : t("work.clickToPlay")}
+
+      <div style={{ position: "absolute", bottom: "12px", left: "50%", transform: "translateX(-50%)", fontFamily: "'Space Mono', monospace", fontSize: "7px", letterSpacing: "0.4em", color: "rgba(240,238,246,0.3)", whiteSpace: "nowrap" }}>
+        {t("work.hoverGlitch")}
       </div>
     </div>
   );
 }
 
-// ── 7. Typewriter Effect ──────────────────────────────────────────────────────
-function TypewriterDemo({ active }: { active: boolean }) {
+// ── 6. Typewriter (improved) ─────────────────────────────────────────────────
+function TypewriterDemo() {
   const { t } = useTranslation("common");
   const phrases = t("work.typewriterPhrases", { returnObjects: true }) as string[];
-  const [phraseIndex, setPhraseIndex] = useState(0);
-  const [charIndex, setCharIndex] = useState(0);
-  const [deleting, setDeleting] = useState(false);
-  const [text, setText] = useState("");
+  const [phraseIdx, setPhraseIdx] = useState(0);
+  const [charIdx,   setCharIdx  ] = useState(0);
+  const [deleting,  setDeleting ] = useState(false);
+  const [text,      setText     ] = useState("");
+  const [blink,     setBlink    ] = useState(true);
 
   useEffect(() => {
-    if (!active) return;
-    const phrase = phrases[phraseIndex];
-    const timeout = setTimeout(() => {
-      if (!deleting) {
-        setText(phrase.slice(0, charIndex + 1));
-        if (charIndex + 1 === phrase.length) { setTimeout(() => setDeleting(true), 1400); return; }
-        setCharIndex(c => c + 1);
+    const phrase = phrases[phraseIdx];
+    const delay  = deleting ? 35 : charIdx === phrase.length ? 1600 : 75;
+    const t2 = setTimeout(() => {
+      if (!deleting && charIdx < phrase.length) {
+        setText(phrase.slice(0, charIdx + 1)); setCharIdx(c => c + 1);
+      } else if (!deleting && charIdx === phrase.length) {
+        setDeleting(true);
+      } else if (deleting && charIdx > 0) {
+        setText(phrase.slice(0, charIdx - 1)); setCharIdx(c => c - 1);
       } else {
-        setText(phrase.slice(0, charIndex - 1));
-        if (charIndex - 1 === 0) { setDeleting(false); setPhraseIndex(i => (i + 1) % phrases.length); setCharIndex(0); return; }
-        setCharIndex(c => c - 1);
+        setDeleting(false); setPhraseIdx(i => (i + 1) % phrases.length);
       }
-    }, deleting ? 40 : 80);
-    return () => clearTimeout(timeout);
-  }, [active, charIndex, deleting, phraseIndex, phrases]);
+    }, delay);
+    return () => clearTimeout(t2);
+  }, [charIdx, deleting, phraseIdx, phrases]);
+
+  useEffect(() => {
+    const b = setInterval(() => setBlink(v => !v), 530);
+    return () => clearInterval(b);
+  }, []);
 
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-      <div style={{ textAlign: "center" }}>
-        <div style={{ fontFamily: "Georgia, serif", fontSize: "clamp(1rem, 3vw, 1.6rem)", fontStyle: "italic", color: "#F0EEF6", minHeight: "2.5em", lineHeight: 1.5 }}>
-          {text}<span style={{ borderRight: "2px solid #7B2FFF", marginLeft: "2px", animation: "blink 1s infinite" }} />
-        </div>
-        <div style={{ display: "flex", justifyContent: "center", gap: "6px", marginTop: "20px" }}>
-          {phrases.map((_, i) => (
-            <div key={i} onClick={() => { setPhraseIndex(i); setCharIndex(0); setDeleting(false); }}
-              style={{ width: i === phraseIndex ? "20px" : "6px", height: "6px", borderRadius: "3px", background: i === phraseIndex ? "#7B2FFF" : "rgba(240,238,246,0.2)", transition: "all 0.3s", cursor: "pointer" }} />
+    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", gap: "28px" }}>
+      {/* Terminal window decoration */}
+      <div style={{ width: "100%", maxWidth: "400px", border: "1px solid rgba(123,47,255,0.25)", borderRadius: "6px", overflow: "hidden" }}>
+        <div style={{ background: "rgba(123,47,255,0.1)", padding: "10px 16px", display: "flex", gap: "6px", borderBottom: "1px solid rgba(123,47,255,0.15)" }}>
+          {["#FF5F57", "#FEBC2E", "#28C840"].map(c => (
+            <div key={c} style={{ width: "10px", height: "10px", borderRadius: "50%", background: c, opacity: 0.7 }} />
           ))}
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "7px", letterSpacing: "0.2em", color: "rgba(240,238,246,0.2)", marginLeft: "auto" }}>cleo.studio</span>
         </div>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "8px", letterSpacing: "0.3em", color: "rgba(240,238,246,0.25)", marginTop: "12px" }}>{t("work.clickDots")}</div>
+        <div style={{ padding: "20px 20px", background: "rgba(4,4,8,0.7)", minHeight: "80px", display: "flex", alignItems: "center" }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "9px", letterSpacing: "0.1em", color: "#7B2FFF", marginRight: "8px" }}>$</span>
+          <span style={{ fontFamily: "Georgia, serif", fontSize: "15px", fontStyle: "italic", color: "#F0EEF6", lineHeight: 1.5 }}>{text}</span>
+          <span style={{ display: "inline-block", width: "2px", height: "18px", background: "#7B2FFF", marginLeft: "2px", opacity: blink ? 1 : 0, transition: "opacity 0.1s" }} />
+        </div>
       </div>
-      <style>{`@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }`}</style>
+
+      {/* Phrase dots */}
+      <div style={{ display: "flex", gap: "8px" }}>
+        {phrases.map((_, i) => (
+          <div key={i} onClick={() => { setPhraseIdx(i); setCharIdx(0); setDeleting(false); }}
+            style={{ width: i === phraseIdx ? "22px" : "6px", height: "6px", borderRadius: "3px", background: i === phraseIdx ? "#7B2FFF" : "rgba(240,238,246,0.15)", transition: "all 0.4s", cursor: "pointer" }} />
+        ))}
+      </div>
     </div>
   );
 }
 
-// ── 8. Color Palettes ─────────────────────────────────────────────────────────
+// ── 7. Color Mixer ───────────────────────────────────────────────────────────
 const PALETTES = [
-  { name: "Void", colors: ["#0A0A0F", "#12121A", "#1A1A28", "#7B2FFF", "#C9A96E"] },
-  { name: "Ember", colors: ["#0F0A0A", "#1A0F0F", "#2A1515", "#FF4D2F", "#FFB347"] },
-  { name: "Ocean", colors: ["#050F15", "#0A1F2A", "#0F3045", "#0EA5E9", "#38BDF8"] },
-  { name: "Forest", colors: ["#050F08", "#0A1F0F", "#0F3018", "#22C55E", "#86EFAC"] },
-  { name: "Rose",  colors: ["#0F050A", "#200A15", "#350F20", "#EC4899", "#F9A8D4"] },
+  { name: "Void",   colors: ["#0A0A0F", "#1A1228", "#7B2FFF", "#A855F7", "#C9A96E"] },
+  { name: "Ember",  colors: ["#100505", "#2A0F0F", "#FF4D2F", "#FF8C5A", "#FFD700"] },
+  { name: "Ocean",  colors: ["#050A0F", "#0A2030", "#0EA5E9", "#38BDF8", "#7DD3FC"] },
+  { name: "Forest", colors: ["#05100A", "#0A2518", "#16A34A", "#4ADE80", "#BBF7D0"] },
+  { name: "Rose",   colors: ["#100508", "#2A0F1A", "#EC4899", "#F472B6", "#FBCFE8"] },
 ];
 
-function PaletteDemo({ active }: { active: boolean }) {
+function ColorDemo() {
+  const [idx, setIdx] = useState(0);
+  const [prev, setPrev] = useState(0);
+  const [transitioning, setTransitioning] = useState(false);
   const { t } = useTranslation("common");
-  const [selected, setSelected] = useState(0);
+
+  const go = (next: number) => {
+    if (transitioning) return;
+    setPrev(idx); setIdx(next); setTransitioning(true);
+    setTimeout(() => setTransitioning(false), 500);
+  };
+
+  const pal = PALETTES[idx];
 
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "20px", padding: "20px" }}>
-      <div style={{ display: "flex", gap: "8px" }}>
-        {PALETTES[selected].colors.map((c, i) => (
-          <div key={i} style={{ width: "clamp(30px, 7vw, 48px)", height: "clamp(70px, 15vw, 100px)", borderRadius: "24px", background: c, boxShadow: i === 3 ? `0 0 20px ${c}66` : "none", transition: "all 0.5s ease" }} />
+    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "20px", padding: "16px" }}>
+      {/* Swatch row */}
+      <div style={{ display: "flex", gap: "6px", alignItems: "flex-end", height: "100px" }}>
+        {pal.colors.map((c, i) => (
+          <div key={`${idx}-${i}`} style={{
+            borderRadius: "20px",
+            background: c,
+            width: `clamp(28px, 6vw, 44px)`,
+            height: `${60 + i * 8}px`,
+            boxShadow: i >= 2 ? `0 0 20px ${c}66` : "none",
+            transition: "all 0.5s cubic-bezier(0.16,1,0.3,1)",
+            transitionDelay: `${i * 0.05}s`,
+          }} />
         ))}
       </div>
-      <div style={{ fontFamily: "Georgia, serif", fontSize: "15px", fontStyle: "italic", color: "rgba(240,238,246,0.6)", letterSpacing: "0.1em" }}>{PALETTES[selected].name}</div>
-      <div style={{ display: "flex", gap: "8px" }}>
+
+      {/* Name */}
+      <div style={{ fontFamily: "Georgia, serif", fontSize: "18px", fontStyle: "italic", color: "rgba(240,238,246,0.7)", letterSpacing: "0.12em" }}>
+        {pal.name}
+      </div>
+
+      {/* Dots nav */}
+      <div style={{ display: "flex", gap: "10px" }}>
         {PALETTES.map((p, i) => (
-          <div key={i} onClick={() => setSelected(i)}
-            style={{ width: "10px", height: "10px", borderRadius: "50%", background: p.colors[3], cursor: "pointer", transform: i === selected ? "scale(1.5)" : "scale(1)", transition: "transform 0.3s", boxShadow: i === selected ? `0 0 10px ${p.colors[3]}` : "none" }} />
+          <button key={i} onClick={() => go(i)} style={{
+            width: i === idx ? "24px" : "8px", height: "8px",
+            borderRadius: "4px",
+            background: i === idx ? p.colors[2] : "rgba(240,238,246,0.15)",
+            border: "none", cursor: "pointer",
+            boxShadow: i === idx ? `0 0 10px ${p.colors[2]}` : "none",
+            transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
+          }} />
         ))}
       </div>
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "8px", letterSpacing: "0.3em", color: "rgba(240,238,246,0.25)" }}>{t("work.clickDots")}</div>
+      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "7px", letterSpacing: "0.3em", color: "rgba(240,238,246,0.2)" }}>{t("work.clickDots")}</div>
     </div>
   );
 }
 
-// ── Demo renderer ─────────────────────────────────────────────────────────────
-function renderDemo(key: DemoKey, active: boolean) {
+// ── 8. Spotlight Follow ──────────────────────────────────────────────────────
+function SpotlightDemo() {
+  const [mouse, setMouse] = useState({ x: 50, y: 50 });
+  const ref = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation("common");
+
+  const onMove = (e: React.MouseEvent) => {
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) return;
+    setMouse({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 });
+  };
+
+  return (
+    <div ref={ref} onMouseMove={onMove} style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", cursor: "none" }}>
+      {/* Dark overlay with spotlight hole */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: `radial-gradient(circle 120px at ${mouse.x}% ${mouse.y}%, transparent 0%, rgba(6,6,8,0.97) 100%)`,
+        transition: "background 0.05s",
+        zIndex: 2, pointerEvents: "none",
+      }} />
+
+      {/* Content behind */}
+      <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gridTemplateRows: "1fr 1fr 1fr", gap: "2px", padding: "20px" }}>
+        {["✦ Animation", "◈ Design", "⬡ Web", "◉ Motion", "∞ Custom", "◎ UI/UX", "✦ Brand", "◈ Story", "⬡ Build"].map((text, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Space Mono', monospace", fontSize: "8px", letterSpacing: "0.2em", color: "rgba(240,238,246,0.5)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "4px" }}>
+            {text}
+          </div>
+        ))}
+      </div>
+
+      {/* Cursor dot */}
+      <div style={{
+        position: "absolute", zIndex: 3, pointerEvents: "none",
+        left: `${mouse.x}%`, top: `${mouse.y}%`,
+        transform: "translate(-50%, -50%)",
+        width: "8px", height: "8px", borderRadius: "50%",
+        background: "#C9A96E",
+        boxShadow: "0 0 12px #C9A96E",
+      }} />
+
+      <div style={{ position: "absolute", bottom: "12px", left: "50%", transform: "translateX(-50%)", fontFamily: "'Space Mono', monospace", fontSize: "7px", letterSpacing: "0.35em", color: "rgba(201,169,110,0.45)", whiteSpace: "nowrap", zIndex: 4 }}>
+        {t("work.moveYourCursor")}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DEMO REGISTRY
+// ══════════════════════════════════════════════════════════════════════════════
+type DemoKey = "constellation" | "signature" | "gravity" | "wave" | "glitch" | "typewriter" | "colors" | "spotlight";
+
+const DEMOS: { key: DemoKey; icon: string; color: string; wide?: boolean }[] = [
+  { key: "constellation", icon: "✦", color: "#7B2FFF" },
+  { key: "signature",     icon: "◎", color: "#C9A96E" },
+  { key: "gravity",       icon: "◉", color: "#A855F7" },
+  { key: "wave",          icon: "∿", color: "#7B2FFF", wide: true },
+  { key: "glitch",        icon: "◈", color: "#F0EEF6" },
+  { key: "typewriter",    icon: "Aa", color: "#7B2FFF" },
+  { key: "colors",        icon: "◐", color: "#C9A96E" },
+  { key: "spotlight",     icon: "⬡", color: "#A855F7" },
+];
+
+function renderDemo(key: DemoKey) {
   switch (key) {
-    case "particles":   return <ParticleDemo active={active} />;
-    case "glitch":      return <GlitchDemo active={active} />;
-    case "liquid":      return <LiquidDemo active={active} />;
-    case "tilt":        return <TiltDemo active={active} />;
-    case "morph":       return <MorphDemo active={active} />;
-    case "audio":       return <AudioDemo active={active} />;
-    case "typewriter":  return <TypewriterDemo active={active} />;
-    case "palette":     return <PaletteDemo active={active} />;
+    case "constellation": return <ConstellationDemo />;
+    case "signature":     return <SignatureDemo />;
+    case "gravity":       return <GravityDemo />;
+    case "wave":          return <WaveDemo />;
+    case "glitch":        return <GlitchDemo />;
+    case "typewriter":    return <TypewriterDemo />;
+    case "colors":        return <ColorDemo />;
+    case "spotlight":     return <SpotlightDemo />;
   }
 }
 
-// ── Demo Card ─────────────────────────────────────────────────────────────────
-function DemoCard({ demo, index }: { demo: DemoConfig; index: number }) {
-  const { t } = useTranslation("common");
-  const [active, setActive] = useState(false);
-  const { ref, visible } = useReveal(0.1);
-
-  const title    = t(`work.demos.${demo.key}.title`);
-  const category = t(`work.demos.${demo.key}.category`);
-  const desc     = t(`work.demos.${demo.key}.desc`);
+// ── Demo Card — new horizontal layout ────────────────────────────────────────
+function DemoCard({ demo, index }: { demo: typeof DEMOS[number]; index: number }) {
+  const { t }    = useTranslation("common");
+  const [open,   setOpen  ] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const { ref, visible } = useReveal(0.08);
 
   return (
     <div ref={ref} style={{
-      gridColumn: demo.size === "wide" ? "span 2" : "span 1",
-      opacity: visible ? 1 : 0,
-      transform: visible ? "translateY(0)" : "translateY(30px)",
-      transition: `opacity 0.7s ease ${index * 0.08}s, transform 0.7s ease ${index * 0.08}s`,
+      gridColumn: demo.wide ? "1 / -1" : "span 1",
+      opacity:    visible ? 1 : 0,
+      transform:  visible ? "translateY(0)" : "translateY(40px)",
+      transition: `opacity 0.7s ease ${index * 0.07}s, transform 0.8s cubic-bezier(0.16,1,0.3,1) ${index * 0.07}s`,
     }}>
-      <div style={{
-        background: "rgba(10,10,15,0.8)",
-        border: `1px solid ${active ? "rgba(123,47,255,0.5)" : "rgba(255,255,255,0.06)"}`,
-        borderRadius: "8px", overflow: "hidden",
-        transition: "border-color 0.4s",
-        boxShadow: active ? "0 0 40px rgba(123,47,255,0.1)" : "none",
-      }}>
-        {/* Header */}
-        <div onClick={() => setActive(a => !a)}
-          style={{ padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", borderBottom: `1px solid ${active ? "rgba(123,47,255,0.2)" : "rgba(255,255,255,0.04)"}`, transition: "border-color 0.3s" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-            <span style={{ fontSize: "20px", color: "#7B2FFF", filter: active ? "drop-shadow(0 0 8px #7B2FFF)" : "none", transition: "filter 0.3s" }}>{demo.icon}</span>
-            <div>
-              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", letterSpacing: "0.2em", color: "#F0EEF6", marginBottom: "3px" }}>{title}</div>
-              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "8px", letterSpacing: "0.2em", color: active ? "#C9A96E" : "rgba(240,238,246,0.3)", transition: "color 0.3s" }}>{category}</div>
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          background: open
+            ? `linear-gradient(160deg, ${demo.color}10, rgba(6,6,10,0.98))`
+            : hovered ? "rgba(10,10,16,0.9)" : "rgba(8,8,12,0.7)",
+          border: `1px solid ${open ? demo.color + "44" : hovered ? demo.color + "22" : "rgba(255,255,255,0.05)"}`,
+          borderRadius: "6px", overflow: "hidden",
+          transition: "all 0.45s cubic-bezier(0.16,1,0.3,1)",
+          boxShadow: open ? `0 0 50px ${demo.color}12` : "none",
+        }}
+      >
+        {/* ── Header row ── */}
+        <div
+          onClick={() => setOpen(o => !o)}
+          style={{
+            padding: "22px 28px",
+            display: "flex", alignItems: "center", gap: "18px",
+            cursor: "none",
+            borderBottom: open ? `1px solid ${demo.color}20` : "1px solid transparent",
+            transition: "border-color 0.3s",
+          }}
+        >
+          {/* Icon box */}
+          <div style={{
+            width: "44px", height: "44px", flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: open ? `${demo.color}18` : "rgba(255,255,255,0.03)",
+            border: `1px solid ${open ? demo.color + "40" : "rgba(255,255,255,0.06)"}`,
+            borderRadius: "8px", fontSize: "20px",
+            color: open || hovered ? demo.color : "rgba(240,238,246,0.25)",
+            filter: open ? `drop-shadow(0 0 8px ${demo.color})` : "none",
+            transition: "all 0.4s",
+          }}>
+            {demo.icon}
+          </div>
+
+          {/* Text */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontFamily: "'Space Mono', monospace",
+              fontSize: "10px", letterSpacing: "0.25em",
+              color: open ? "#F0EEF6" : hovered ? "rgba(240,238,246,0.7)" : "rgba(240,238,246,0.45)",
+              marginBottom: "5px", transition: "color 0.3s",
+            }}>
+              {t(`work.demos.${demo.key}.title`)}
+            </div>
+            <div style={{
+              fontFamily: "Georgia, serif", fontSize: "12px", fontStyle: "italic",
+              color: open ? demo.color : "rgba(240,238,246,0.25)",
+              transition: "color 0.3s",
+            }}>
+              {t(`work.demos.${demo.key}.category`)}
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "7px", letterSpacing: "0.25em", color: active ? "#7B2FFF" : "rgba(240,238,246,0.2)", border: `1px solid ${active ? "#7B2FFF44" : "rgba(255,255,255,0.08)"}`, padding: "3px 8px", borderRadius: "2px", transition: "all 0.3s" }}>
-              {active ? t("work.live") : t("work.inactive")}
-            </span>
-            <div style={{ width: "24px", height: "24px", borderRadius: "50%", border: `1px solid ${active ? "#7B2FFF" : "rgba(255,255,255,0.12)"}`, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.3s", background: active ? "rgba(123,47,255,0.2)" : "transparent" }}>
-              <div style={{ width: 0, height: 0, borderTop: "4px solid transparent", borderBottom: "4px solid transparent", borderLeft: `6px solid ${active ? "#7B2FFF" : "rgba(240,238,246,0.3)"}`, marginLeft: active ? "2px" : "2px", transform: active ? "rotate(90deg)" : "none", transition: "transform 0.3s" }} />
+
+          {/* Status + toggle */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: "5px",
+              padding: "4px 10px",
+              background: open ? `${demo.color}15` : "rgba(255,255,255,0.03)",
+              border: `1px solid ${open ? demo.color + "35" : "rgba(255,255,255,0.06)"}`,
+              borderRadius: "2px", transition: "all 0.3s",
+            }}>
+              <div style={{ width: "5px", height: "5px", borderRadius: "50%", background: open ? demo.color : "rgba(240,238,246,0.2)", boxShadow: open ? `0 0 6px ${demo.color}` : "none", transition: "all 0.3s", animation: open ? "pulse 2s infinite" : "none" }} />
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "7px", letterSpacing: "0.25em", color: open ? demo.color : "rgba(240,238,246,0.2)", transition: "color 0.3s" }}>
+                {open ? "LIVE" : "IDLE"}
+              </span>
+            </div>
+            <div style={{
+              width: "26px", height: "26px", borderRadius: "50%",
+              border: `1px solid ${open ? demo.color + "55" : "rgba(255,255,255,0.1)"}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: open ? `${demo.color}15` : "transparent",
+              color: open ? demo.color : "rgba(240,238,246,0.3)",
+              fontSize: "10px",
+              transform: open ? "rotate(180deg)" : "none",
+              transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
+            }}>
+              ↓
             </div>
           </div>
         </div>
 
-        {/* Demo area */}
-        {!active && (
-          <div onClick={() => setActive(true)} style={{ height: "80px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", gap: "10px", opacity: 0.4 }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "9px", letterSpacing: "0.3em", color: "#F0EEF6" }}>{t("work.launch")}</span>
-          </div>
-        )}
-        {active && (
-          <div style={{ height: demo.size === "wide" ? "320px" : "260px", position: "relative" }}>
-            {renderDemo(demo.key, active)}
-          </div>
-        )}
+        {/* ── Demo canvas ── */}
+        <div style={{
+          height: open ? (demo.wide ? "320px" : "260px") : "0px",
+          overflow: "hidden",
+          transition: "height 0.5s cubic-bezier(0.16,1,0.3,1)",
+        }}>
+          {open && (
+            <div style={{ width: "100%", height: "100%" }}>
+              {renderDemo(demo.key)}
+            </div>
+          )}
+        </div>
 
-        {/* Footer */}
-        <div style={{ padding: "14px 24px", borderTop: `1px solid rgba(255,255,255,0.04)` }}>
-          <p style={{ fontFamily: "Georgia, serif", fontSize: "12px", fontStyle: "italic", color: "rgba(240,238,246,0.35)", margin: 0, lineHeight: 1.7 }}>{desc}</p>
+        {/* ── Footer ── */}
+        <div style={{
+          padding: open ? "14px 28px" : "0 28px",
+          maxHeight: open ? "80px" : "0px",
+          overflow: "hidden",
+          transition: "all 0.4s ease",
+          borderTop: open ? `1px solid rgba(255,255,255,0.04)` : "none",
+        }}>
+          <p style={{ fontFamily: "Georgia, serif", fontSize: "12px", fontStyle: "italic", color: "rgba(240,238,246,0.3)", margin: 0, lineHeight: 1.7 }}>
+            {t(`work.demos.${demo.key}.desc`)}
+          </p>
         </div>
       </div>
     </div>
@@ -473,37 +808,58 @@ function DemoCard({ demo, index }: { demo: DemoConfig; index: number }) {
 // ── Main Work Section ─────────────────────────────────────────────────────────
 export default function Work() {
   const { t } = useTranslation("common");
-  const { ref: headRef, visible: headVisible } = useReveal();
+  const { ref: headRef, visible: headVisible } = useReveal(0.08);
 
   return (
-    <section id="work" style={{ padding: "140px 48px", background: "#060608", position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: "30%", right: "-8%", width: "500px", height: "500px", background: "radial-gradient(circle, rgba(123,47,255,0.04), transparent 70%)", pointerEvents: "none" }} />
+    <section id="work" style={{ padding: "160px 48px", background: "#060608", position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: "30%", right: "-5%", width: "500px", height: "500px", background: "radial-gradient(circle, rgba(201,169,110,0.03), transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", bottom: "20%", left: "-5%",  width: "400px", height: "400px", background: "radial-gradient(circle, rgba(123,47,255,0.04), transparent 70%)", pointerEvents: "none" }} />
 
       {/* Header */}
-      <div ref={headRef} style={{ textAlign: "center", marginBottom: "80px", opacity: headVisible ? 1 : 0, transform: headVisible ? "translateY(0)" : "translateY(30px)", transition: "opacity 0.9s ease, transform 0.9s ease" }}>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.4em", color: "#7B2FFF", marginBottom: "24px" }}>{t("work.label")}</div>
-        <h2 style={{ fontFamily: "Georgia, serif", fontSize: "clamp(2rem, 5vw, 3.8rem)", fontWeight: 300, fontStyle: "italic", color: "#F0EEF6", margin: 0, marginBottom: "16px", lineHeight: 1.2, letterSpacing: "-0.02em" }}>
-          {t("work.title")} <em style={{ color: "#C9A96E" }}>{t("work.titleAccent")}</em>
+      <div ref={headRef} style={{
+        textAlign: "center", marginBottom: "90px",
+        opacity:   headVisible ? 1 : 0,
+        transform: headVisible ? "translateY(0)" : "translateY(40px)",
+        transition: "opacity 0.9s ease, transform 0.9s cubic-bezier(0.16,1,0.3,1)",
+      }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "9px", letterSpacing: "0.5em", color: "#7B2FFF", marginBottom: "28px" }}>
+          {t("work.label")}
+        </div>
+        <h2 style={{ fontFamily: "Georgia, serif", fontSize: "clamp(2rem, 5vw, 4rem)", fontWeight: 300, fontStyle: "italic", color: "#F0EEF6", margin: "0 0 18px", letterSpacing: "-0.025em", lineHeight: 1.1 }}>
+          {t("work.title")}{" "}
+          <em style={{ background: "linear-gradient(135deg, #7B2FFF, #C9A96E)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+            {t("work.titleAccent")}
+          </em>
         </h2>
-        <p style={{ fontFamily: "Georgia, serif", fontSize: "15px", color: "rgba(240,238,246,0.35)", margin: "0 auto", fontStyle: "italic", maxWidth: "500px", lineHeight: 1.8 }}>{t("work.sub")}</p>
-        <div style={{ width: "60px", height: "1px", background: "linear-gradient(90deg, transparent, #7B2FFF, #C9A96E, transparent)", margin: "28px auto 0" }} />
+        <p style={{ fontFamily: "Georgia, serif", fontSize: "15px", fontStyle: "italic", color: "rgba(240,238,246,0.32)", margin: "0 auto", maxWidth: "480px", lineHeight: 1.9 }}>
+          {t("work.sub")}
+        </p>
+        <div style={{ width: "60px", height: "1px", background: "linear-gradient(90deg, transparent, #7B2FFF, #C9A96E, transparent)", margin: "30px auto 0" }} />
       </div>
 
-      {/* Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "16px", maxWidth: "1100px", margin: "0 auto 80px" }}>
+      {/* Demo grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(330px, 1fr))", gap: "14px", maxWidth: "1100px", margin: "0 auto 90px" }}>
         {DEMOS.map((demo, i) => <DemoCard key={demo.key} demo={demo} index={i} />)}
       </div>
 
       {/* CTA */}
-      <div style={{ textAlign: "center" }}>
-        <p style={{ fontFamily: "Georgia, serif", fontSize: "18px", fontStyle: "italic", color: "rgba(240,238,246,0.5)", marginBottom: "24px" }}>
-          {t("work.ctaSub")} <em style={{ color: "#C9A96E" }}>you.</em>
+      <div style={{ textAlign: "center", opacity: 1 }}>
+        <p style={{ fontFamily: "Georgia, serif", fontSize: "17px", fontStyle: "italic", color: "rgba(240,238,246,0.4)", marginBottom: "28px" }}>
+          {t("work.ctaSub")}{" "}
+          <em style={{ color: "#C9A96E" }}>you.</em>
         </p>
         <a href="https://wa.me/message/DDNIUOL264WDB1" target="_blank" rel="noopener noreferrer"
-          style={{ display: "inline-block", padding: "16px 48px", background: "linear-gradient(135deg, #7B2FFF, #9B5FFF)", color: "#F0EEF6", fontFamily: "'Space Mono', monospace", fontSize: "11px", letterSpacing: "0.25em", textDecoration: "none", borderRadius: "2px", boxShadow: "0 0 40px rgba(123,47,255,0.3)" }}>
+          style={{ display: "inline-flex", alignItems: "center", gap: "10px", padding: "16px 52px", background: "linear-gradient(135deg, #7B2FFF, #9B5FFF)", color: "#F0EEF6", fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.3em", textDecoration: "none", borderRadius: "2px", boxShadow: "0 0 50px rgba(123,47,255,0.35)", cursor: "none", transition: "all 0.4s ease" }}
+          onMouseEnter={e => { const el = e.currentTarget as HTMLAnchorElement; el.style.transform = "translateY(-4px)"; el.style.boxShadow = "0 0 90px rgba(123,47,255,0.6)"; }}
+          onMouseLeave={e => { const el = e.currentTarget as HTMLAnchorElement; el.style.transform = "none"; el.style.boxShadow = "0 0 50px rgba(123,47,255,0.35)"; }}
+        >
           {t("work.cta")}
         </a>
       </div>
+
+      <style>{`
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+      `}</style>
     </section>
   );
 }
