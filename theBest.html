@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Casty — Voice Artists</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cairo:wght@300;400;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+<style>
+:root{
+  --black:#04030a;--deep:#080612;--surface:#0f0d1c;--card-bg:#131020;
+  --gold:#c9a84c;--gold2:#f0d080;--gold3:#8a6a1f;
+  --text:#f5f0e8;--muted:#8a7a60;
+  --border:rgba(201,168,76,0.2);--border-bright:rgba(201,168,76,0.5);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--black);color:var(--text);font-family:'Cairo',sans-serif;overflow-x:hidden;cursor:none}
+
+/* CURSOR */
+.cursor{width:10px;height:10px;border-radius:50%;background:var(--gold);position:fixed;top:0;left:0;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);mix-blend-mode:difference;transition:width .2s,height .2s}
+.cursor-follower{width:34px;height:34px;border-radius:50%;border:1px solid rgba(201,168,76,0.4);position:fixed;top:0;left:0;pointer-events:none;z-index:9998;transform:translate(-50%,-50%)}
+body:has(a:hover) .cursor, body:has(button:hover) .cursor{width:20px;height:20px}
+
+/* CANVAS — every section gets one */
+.section-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:200;padding:1.1rem 3rem;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(to bottom,rgba(4,3,10,0.97),transparent);backdrop-filter:blur(10px);border-bottom:1px solid rgba(201,168,76,0.07)}
+.nav-logo{font-family:'Cinzel',serif;font-size:1.7rem;font-weight:900;letter-spacing:.15em;background:linear-gradient(135deg,var(--gold2),var(--gold),var(--gold3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-decoration:none}
+.nav-links{display:flex;align-items:center;gap:2rem;list-style:none}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.1em;transition:color .3s;font-family:'Cairo',sans-serif;position:relative}
+.nav-links a::after{content:'';position:absolute;bottom:-4px;left:0;right:0;height:1px;background:var(--gold);transform:scaleX(0);transition:transform .3s}
+.nav-links a:hover{color:var(--gold)}
+.nav-links a:hover::after{transform:scaleX(1)}
+.lang-btn{background:rgba(201,168,76,.1);border:1px solid var(--border);color:var(--gold);padding:.3rem .85rem;border-radius:100px;font-size:.76rem;font-weight:700;cursor:pointer;transition:all .3s;font-family:'Cairo',sans-serif}
+.lang-btn:hover{background:rgba(201,168,76,.22);border-color:var(--gold)}
+.socials{display:flex;gap:.7rem;align-items:center}
+.social-icon{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);text-decoration:none;transition:all .3s;background:rgba(255,255,255,.02)}
+.social-icon:hover{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.09);transform:translateY(-2px) rotate(5deg)}
+
+/* ======= HERO ======= */
+#hero{position:relative;height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.hero-content{position:relative;z-index:2;text-align:center;padding:2rem}
+.hero-eyebrow{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1.15rem;color:var(--gold);letter-spacing:.25em;margin-bottom:1.2rem;opacity:0;transform:translateY(20px)}
+.hero-title{font-family:'Cinzel',serif;font-size:clamp(3.5rem,10vw,8.5rem);font-weight:900;line-height:1;letter-spacing:.06em;background:linear-gradient(135deg,#fff 0%,var(--gold2) 35%,var(--gold) 65%,var(--gold3) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:1.5rem;opacity:0;transform:translateY(30px)}
+.hero-divider{width:80px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:0 auto 1.5rem;opacity:0}
+.hero-sub{font-size:1rem;color:var(--muted);line-height:1.9;max-width:540px;margin:0 auto 2rem;opacity:0;transform:translateY(20px)}
+.hero-tags{display:flex;gap:.7rem;justify-content:center;flex-wrap:wrap;opacity:0;transform:translateY(20px)}
+.hero-tag{padding:.35rem 1.1rem;border:1px solid var(--border);border-radius:100px;font-size:.76rem;color:var(--muted);background:rgba(201,168,76,.04);letter-spacing:.04em;transition:all .3s}
+.hero-tag:hover{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.1)}
+.btn-cta{display:inline-flex;align-items:center;gap:.6rem;margin-top:2.2rem;padding:.85rem 2.4rem;background:linear-gradient(135deg,var(--gold3),var(--gold));color:var(--black);font-family:'Cairo',sans-serif;font-weight:700;font-size:.88rem;border:none;border-radius:4px;cursor:pointer;text-decoration:none;letter-spacing:.08em;transition:all .3s;opacity:0;box-shadow:0 8px 30px rgba(201,168,76,.25)}
+.btn-cta:hover{transform:translateY(-3px);box-shadow:0 14px 40px rgba(201,168,76,.45)}
+.scroll-indicator{position:absolute;bottom:2rem;left:50%;transform:translateX(-50%);z-index:2;display:flex;flex-direction:column;align-items:center;gap:.5rem;color:var(--muted);font-size:.68rem;letter-spacing:.15em;animation:fadeIn 1s ease forwards 2.2s;opacity:0}
+.scroll-line{width:1px;height:40px;background:linear-gradient(to bottom,var(--gold),transparent);animation:scrollPulse 2s ease infinite}
+
+/* ======= ABOUT ======= */
+#about{position:relative;padding:7rem 3rem;overflow:hidden;background:var(--deep)}
+.about-inner{max-width:920px;margin:0 auto;display:grid;grid-template-columns:1fr 2fr;gap:4rem;align-items:center;position:relative;z-index:2}
+.about-label{font-family:'Cinzel',serif;font-size:.68rem;letter-spacing:.32em;color:var(--gold);text-transform:uppercase;margin-bottom:1rem}
+.about-heading{font-family:'Cormorant Garamond',serif;font-size:3rem;font-weight:300;line-height:1.2;color:var(--text)}
+.about-heading em{font-style:italic;color:var(--gold)}
+.about-text{font-size:.93rem;line-height:1.95;color:#9a8f7a;position:relative;z-index:2}
+.about-stats{display:flex;gap:2.5rem;margin-top:2rem;flex-wrap:wrap}
+.stat-num{font-family:'Cinzel',serif;font-size:2.2rem;font-weight:700;color:var(--gold);display:block}
+.stat-label{font-size:.7rem;color:var(--muted);letter-spacing:.1em}
+
+/* ======= SERVICES ======= */
+#services{position:relative;padding:7rem 2rem;overflow:hidden;background:var(--black)}
+.services-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1.2rem;max-width:1100px;margin:3rem auto 0;position:relative;z-index:2}
+.service-card{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:2rem 1.5rem;text-align:center;transition:all .4s;position:relative;overflow:hidden}
+.service-card::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(201,168,76,.07),transparent);opacity:0;transition:opacity .4s}
+.service-card:hover{transform:translateY(-6px);border-color:var(--border-bright);box-shadow:0 20px 50px rgba(0,0,0,.5)}
+.service-card:hover::after{opacity:1}
+.service-icon{font-size:2.5rem;margin-bottom:1rem;display:block}
+.service-title{font-family:'Cinzel',serif;font-size:.9rem;font-weight:600;color:var(--text);letter-spacing:.08em;margin-bottom:.6rem}
+.service-desc{font-size:.78rem;color:var(--muted);line-height:1.7}
+
+/* ======= VIDEO SECTION ======= */
+#showreel{position:relative;padding:7rem 2rem;overflow:hidden;background:var(--deep)}
+.video-wrap{max-width:900px;margin:3rem auto 0;position:relative;z-index:2}
+.video-container{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--border-bright);box-shadow:0 30px 80px rgba(0,0,0,.7),0 0 60px rgba(201,168,76,.1);background:var(--surface)}
+.video-container video{width:100%;display:block;max-height:500px;object-fit:cover}
+.video-placeholder{width:100%;aspect-ratio:16/9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;background:linear-gradient(135deg,var(--surface),var(--card-bg));cursor:pointer}
+.video-play-icon{width:70px;height:70px;border-radius:50%;border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:var(--gold);background:rgba(201,168,76,.08);transition:all .3s}
+.video-play-icon:hover{background:rgba(201,168,76,.2);transform:scale(1.1)}
+.video-placeholder-text{font-size:.85rem;color:var(--muted);letter-spacing:.1em;font-family:'Cinzel',serif}
+.video-input-wrap{margin-top:1.5rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.video-url-input{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem;color:var(--text);font-family:'Cairo',sans-serif;font-size:.85rem;outline:none;transition:border-color .3s;direction:rtl;min-width:200px}
+.video-url-input:focus{border-color:var(--gold);background:rgba(201,168,76,.04)}
+.video-url-input::placeholder{color:var(--muted)}
+.btn-load-video{padding:.75rem 1.5rem;background:rgba(201,168,76,.1);border:1px solid var(--border);border-radius:10px;color:var(--gold);font-family:'Cairo',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .3s;white-space:nowrap}
+.btn-load-video:hover{background:rgba(201,168,76,.22);border-color:var(--gold)}
+.video-hint{font-size:.72rem;color:var(--muted);margin-top:.6rem;line-height:1.6}
+
+/* ======= ARTISTS ======= */
+#artists{position:relative;padding:7rem 2rem;overflow:hidden;min-height:100vh}
+.section-header{text-align:center;margin-bottom:4rem;position:relative;z-index:2}
+.section-label{font-family:'Cinzel',serif;font-size:.66rem;letter-spacing:.38em;color:var(--gold);text-transform:uppercase;margin-bottom:.8rem}
+.section-title{font-family:'Cormorant Garamond',serif;font-size:3rem;font-weight:300;color:var(--text);line-height:1.2}
+.section-title em{font-style:italic;color:var(--gold)}
+.section-line{width:60px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:1.2rem auto 0}
+.artists-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.5rem;max-width:1200px;margin:0 auto;position:relative;z-index:2}
+.artist-card{background:var(--card-bg);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;transition:all .4s cubic-bezier(.4,0,.2,1);position:relative;opacity:0;transform:translateY(40px)}
+.artist-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(201,168,76,.06),transparent);opacity:0;transition:opacity .4s;z-index:1;pointer-events:none}
+.artist-card:hover{border-color:var(--border-bright);transform:translateY(-6px);box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 40px rgba(201,168,76,.1)}
+.artist-card:hover::before{opacity:1}
+.card-img-wrap{position:relative;height:200px;overflow:hidden;background:var(--surface)}
+.card-img-wrap img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease;filter:brightness(.85) saturate(.8)}
+.artist-card:hover .card-img-wrap img{transform:scale(1.07);filter:brightness(.95) saturate(1)}
+.card-img-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--surface),var(--card-bg));color:var(--muted);font-size:3rem}
+.card-img-overlay{position:absolute;bottom:0;left:0;right:0;height:65%;background:linear-gradient(to top,var(--card-bg),transparent)}
+.card-body{padding:1.2rem 1.4rem;position:relative;z-index:2}
+.card-name{font-family:'Cinzel',serif;font-size:1.05rem;font-weight:600;color:var(--text);margin-bottom:.3rem;letter-spacing:.05em}
+.card-age{font-size:.73rem;color:var(--muted);margin-bottom:.9rem;letter-spacing:.04em}
+.card-age span{color:var(--gold);font-weight:600}
+.chars-row{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.9rem}
+.char-chip{display:flex;align-items:center;gap:.3rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:100px;padding:.2rem .55rem .2rem .3rem;font-size:.66rem;color:var(--muted);transition:border-color .3s}
+.char-chip:hover{border-color:var(--border)}
+.char-chip img{width:20px;height:20px;border-radius:50%;object-fit:cover}
+.char-placeholder{width:20px;height:20px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:.58rem}
+.card-listen-btn{width:100%;padding:.6rem;background:rgba(201,168,76,.07);border:1px solid var(--border);border-radius:8px;color:var(--gold);font-family:'Cairo',sans-serif;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .3s;letter-spacing:.05em;display:flex;align-items:center;justify-content:center;gap:.5rem}
+.card-listen-btn:hover{background:rgba(201,168,76,.18);border-color:var(--gold)}
+
+/* ======= POPUP ======= */
+.popup-overlay{position:fixed;inset:0;background:rgba(4,3,10,.93);z-index:600;display:flex;align-items:center;justify-content:center;padding:1.5rem;opacity:0;pointer-events:none;transition:opacity .4s ease;backdrop-filter:blur(14px)}
+.popup-overlay.active{opacity:1;pointer-events:all}
+.popup{background:var(--card-bg);border:1px solid var(--border-bright);border-radius:18px;width:100%;max-width:520px;padding:2rem;position:relative;transform:translateY(30px) scale(.96);transition:transform .4s cubic-bezier(.4,0,.2,1);box-shadow:0 30px 80px rgba(0,0,0,.8),0 0 60px rgba(201,168,76,.06);max-height:90vh;overflow-y:auto}
+.popup-overlay.active .popup{transform:translateY(0) scale(1)}
+.popup::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.popup-close{position:absolute;top:1rem;left:1rem;width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.9rem;transition:all .3s}
+.popup-close:hover{border-color:var(--gold);color:var(--gold);rotate:90deg}
+.popup-artist-name{font-family:'Cinzel',serif;font-size:1.45rem;font-weight:700;color:var(--text);margin-bottom:.3rem;text-align:center;letter-spacing:.08em}
+.popup-divider{width:40px;height:1px;background:var(--gold);margin:.7rem auto 1.4rem;opacity:.5}
+.voices-label{font-size:.68rem;letter-spacing:.22em;color:var(--gold);font-family:'Cinzel',serif;text-transform:uppercase;margin-bottom:.9rem;text-align:center}
+.voice-item{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:.85rem 1rem;margin-bottom:.55rem;display:flex;align-items:center;gap:.8rem;transition:border-color .3s}
+.voice-item:hover{border-color:rgba(201,168,76,.25)}
+.voice-name-input{flex:1;background:transparent;border:none;color:var(--text);font-family:'Cairo',sans-serif;font-size:.83rem;outline:none;direction:rtl;min-width:0}
+.voice-name-input::placeholder{color:var(--muted)}
+.play-btn{width:34px;height:34px;border-radius:50%;background:rgba(201,168,76,.1);border:1px solid var(--border);color:var(--gold);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.72rem;transition:all .3s;flex-shrink:0}
+.play-btn:hover{background:rgba(201,168,76,.25);border-color:var(--gold);transform:scale(1.1)}
+.play-btn.playing{background:var(--gold);color:var(--black);border-color:var(--gold)}
+.audio-bar{flex:1;height:4px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;cursor:pointer;min-width:50px}
+.audio-progress{height:100%;background:linear-gradient(90deg,var(--gold3),var(--gold));width:0%;border-radius:4px}
+audio{display:none}
+.upload-label{font-size:.66rem;color:var(--muted);cursor:pointer;border:1px dashed rgba(201,168,76,.2);border-radius:6px;padding:.2rem .5rem;transition:all .3s;white-space:nowrap;flex-shrink:0}
+.upload-label:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ======= FOOTER ======= */
+footer{position:relative;padding:4rem 3rem 3rem;text-align:center;border-top:1px solid var(--border);overflow:hidden}
+.footer-logo{font-family:'Cinzel',serif;font-size:2rem;font-weight:900;letter-spacing:.2em;background:linear-gradient(135deg,var(--gold2),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:1rem;display:block}
+.footer-socials{display:flex;gap:1rem;justify-content:center;margin-bottom:1.5rem}
+.footer-copy{font-size:.72rem;color:var(--muted);letter-spacing:.08em}
+
+/* KEYFRAMES */
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes scrollPulse{0%,100%{transform:scaleY(1);opacity:1}50%{transform:scaleY(.6);opacity:.4}}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:var(--black)}
+::-webkit-scrollbar-thumb{background:var(--gold3);border-radius:3px}
+
+html[dir="ltr"] .voice-name-input{direction:ltr}
+html[dir="ltr"] .video-url-input{direction:ltr}
+html[dir="ltr"] .about-inner{direction:ltr}
+
+@media(max-width:768px){
+  nav{padding:1rem 1rem}
+  .nav-links{display:none}
+  .about-inner{grid-template-columns:1fr;gap:2rem}
+  .artists-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+  #about,#artists,#services,#showreel{padding:4rem 1.2rem}
+  .section-title{font-size:2.2rem}
+  .about-heading{font-size:2.2rem}
+}
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-follower" id="cursorFollower"></div>
+
+<!-- NAV -->
+<nav>
+  <a href="#hero" class="nav-logo">CASTY</a>
+  <ul class="nav-links">
+    <li><a href="#hero" data-ar="الرئيسية" data-en="Home">الرئيسية</a></li>
+    <li><a href="#about" data-ar="عن كاستي" data-en="About">عن كاستي</a></li>
+    <li><a href="#services" data-ar="خدماتنا" data-en="Services">خدماتنا</a></li>
+    <li><a href="#showreel" data-ar="شورييل" data-en="Showreel">شورييل</a></li>
+    <li><a href="#artists" data-ar="الفنانون" data-en="Artists">الفنانون</a></li>
+  </ul>
+  <div style="display:flex;align-items:center;gap:.8rem">
+    <div class="socials">
+      <a href="#" class="social-icon" title="TikTok">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 106.33 6.33V8.69a8.18 8.18 0 004.78 1.52V6.73a4.85 4.85 0 01-1.01-.04z"/></svg>
+      </a>
+      <a href="#" class="social-icon" title="Instagram">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+      </a>
+      <a href="#" class="social-icon" title="YouTube">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+      </a>
+    </div>
+    <button class="lang-btn" onclick="toggleLang()" id="langBtn">EN</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <canvas class="section-canvas" id="canvas-hero"></canvas>
+  <div class="hero-content">
+    <div class="hero-eyebrow" data-ar="أصوات تصنع الفارق" data-en="Voices That Make a Difference">أصوات تصنع الفارق</div>
+    <div class="hero-title">CASTY</div>
+    <div class="hero-divider"></div>
+    <div class="hero-sub" data-ar="نضم نخبة مؤدي الأصوات العرب — أنيمي، ألعاب، إعلانات، ودبلجة. أصوات تحكي، تقنع، وتُبهر." data-en="Home to elite Arab voice artists — anime, games, commercials & dubbing. Voices that tell stories, persuade, and captivate.">نضم نخبة مؤدي الأصوات العرب — أنيمي، ألعاب، إعلانات، ودبلجة. أصوات تحكي، تقنع، وتُبهر.</div>
+    <div class="hero-tags">
+      <span class="hero-tag" data-ar="🎌 أنيمي" data-en="🎌 Anime">🎌 أنيمي</span>
+      <span class="hero-tag" data-ar="🎮 ألعاب" data-en="🎮 Games">🎮 ألعاب</span>
+      <span class="hero-tag" data-ar="📢 إعلانات" data-en="📢 Ads">📢 إعلانات</span>
+      <span class="hero-tag" data-ar="🎭 دبلجة" data-en="🎭 Dubbing">🎭 دبلجة</span>
+    </div>
+    <a href="#artists" class="btn-cta" data-ar="استكشف الفنانين ↓" data-en="Explore Artists ↓">استكشف الفنانين ↓</a>
+  </div>
+  <div class="scroll-indicator">
+    <div class="scroll-line"></div>
+    <span data-ar="اسكرول" data-en="scroll">اسكرول</span>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section id="about">
+  <canvas class="section-canvas" id="canvas-about"></canvas>
+  <div class="about-inner">
+    <div>
+      <div class="about-label" data-ar="من نحن" data-en="About Us">من نحن</div>
+      <div class="about-heading">
+        <em data-ar="أصوات" data-en="Voices">أصوات</em><br>
+        <span data-ar="تتجاوز الحدود" data-en="Beyond Limits">تتجاوز الحدود</span>
+      </div>
+      <div class="about-stats">
+        <div class="stat"><span class="stat-num">10+</span><span class="stat-label" data-ar="فنان صوتي" data-en="Voice Artists">فنان صوتي</span></div>
+        <div class="stat"><span class="stat-num">100+</span><span class="stat-label" data-ar="مشروع منجز" data-en="Projects Done">مشروع منجز</span></div>
+        <div class="stat"><span class="stat-num">∞</span><span class="stat-label" data-ar="إمكانيات" data-en="Possibilities">إمكانيات</span></div>
+      </div>
+    </div>
+    <div class="about-text" data-ar="كاستي هو بيتك لمؤدي الأصوات المحترفين — شباب وبنات من قلب العالم العربي، قادرين على إحياء أي شخصية، من أبطال الأنيمي لشخصيات الألعاب والإعلانات. نقدم أصواتاً حقيقية، مميزة، وقادرة على الوصول لأي جمهور في أي مكان في العالم." data-en="Casty is your home for professional voice talent — men and women from the Arab world, capable of bringing any character to life: from anime heroes to game characters, commercial voices and full dubbing productions. Real, distinctive voices that connect with any audience anywhere in the world.">
+      كاستي هو بيتك لمؤدي الأصوات المحترفين — شباب وبنات من قلب العالم العربي، قادرين على إحياء أي شخصية، من أبطال الأنيمي لشخصيات الألعاب والإعلانات. نقدم أصواتاً حقيقية، مميزة، وقادرة على الوصول لأي جمهور في أي مكان في العالم.
+    </div>
+  </div>
+</section>
+
+<!-- SERVICES -->
+<section id="services">
+  <canvas class="section-canvas" id="canvas-services"></canvas>
+  <div class="section-header">
+    <div class="section-label" data-ar="ما نقدمه" data-en="What We Offer">ما نقدمه</div>
+    <div class="section-title"><em data-ar="خدماتنا" data-en="Our">خدماتنا</em> <span data-ar="" data-en="Services"></span></div>
+    <div class="section-line"></div>
+  </div>
+  <div class="services-grid">
+    <div class="service-card"><span class="service-icon">🎌</span><div class="service-title" data-ar="دبلجة أنيمي" data-en="Anime Dubbing">دبلجة أنيمي</div><div class="service-desc" data-ar="نحيي شخصياتك المفضلة بأصوات عربية أصيلة تحافظ على روح الأنيمي" data-en="We bring your favorite characters to life with authentic Arabic voices">نحيي شخصياتك المفضلة بأصوات عربية أصيلة تحافظ على روح الأنيمي</div></div>
+    <div class="service-card"><span class="service-icon">🎮</span><div class="service-title" data-ar="ألعاب فيديو" data-en="Video Games">ألعاب فيديو</div><div class="service-desc" data-ar="أصوات شخصيات ألعاب احترافية تضيف عمقاً وواقعية لتجربة اللعب" data-en="Professional game character voices adding depth and realism">أصوات شخصيات ألعاب احترافية تضيف عمقاً وواقعية لتجربة اللعب</div></div>
+    <div class="service-card"><span class="service-icon">📢</span><div class="service-title" data-ar="إعلانات" data-en="Commercials">إعلانات</div><div class="service-desc" data-ar="أصوات إعلانية مقنعة تصل لقلب جمهورك وتترك أثراً لا يُنسى" data-en="Persuasive commercial voices that reach your audience's heart">أصوات إعلانية مقنعة تصل لقلب جمهورك وتترك أثراً لا يُنسى</div></div>
+    <div class="service-card"><span class="service-icon">🎙️</span><div class="service-title" data-ar="تعليق صوتي" data-en="Voiceover">تعليق صوتي</div><div class="service-desc" data-ar="تعليق صوتي احترافي للأفلام الوثائقية والعروض التقديمية والمحتوى الرقمي" data-en="Professional voiceover for documentaries, presentations and digital content">تعليق صوتي احترافي للأفلام الوثائقية والعروض التقديمية والمحتوى الرقمي</div></div>
+    <div class="service-card"><span class="service-icon">🎭</span><div class="service-title" data-ar="أصوات كوميدية" data-en="Comedy Voices">أصوات كوميدية</div><div class="service-desc" data-ar="شخصيات كوميدية وكرتونية بأصوات مرحة وطاقة عالية" data-en="Comedy and cartoon characters with fun, high-energy voices">شخصيات كوميدية وكرتونية بأصوات مرحة وطاقة عالية</div></div>
+    <div class="service-card"><span class="service-icon">⚔️</span><div class="service-title" data-ar="أصوات أكشن" data-en="Action Voices">أصوات أكشن</div><div class="service-desc" data-ar="أصوات درامية وقوية للمشاهد الحماسية والمعارك الملحمية" data-en="Dramatic and powerful voices for action scenes and epic battles">أصوات درامية وقوية للمشاهد الحماسية والمعارك الملحمية</div></div>
+  </div>
+</section>
+
+<!-- SHOWREEL / VIDEO -->
+<section id="showreel">
+  <canvas class="section-canvas" id="canvas-showreel"></canvas>
+  <div class="section-header">
+    <div class="section-label" data-ar="أعمالنا" data-en="Our Work">أعمالنا</div>
+    <div class="section-title"><em data-ar="شورييل" data-en="Show">شورييل</em> <span data-ar="كاستي" data-en="Reel">كاستي</span></div>
+    <div class="section-line"></div>
+  </div>
+  <div class="video-wrap">
+    <div class="video-container" id="videoContainer">
+      <iframe src="https://t.me/Daethvoise/24?embed=1&mode=tme" style="width:100%;aspect-ratio:16/9;border:none;display:block;background:#000" allowfullscreen allow="autoplay"></iframe>
+    </div>
+  </div>
+</section>
+
+<!-- ARTISTS -->
+<section id="artists">
+  <canvas class="section-canvas" id="canvas-artists"></canvas>
+  <div class="section-header">
+    <div class="section-label" data-ar="فريقنا" data-en="Our Team">فريقنا</div>
+    <div class="section-title"><em data-ar="الفنانون" data-en="The">الفنانون</em> <span data-ar="" data-en="Artists"></span></div>
+    <div class="section-line"></div>
+  </div>
+  <div class="artists-grid" id="artistsGrid"></div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <canvas class="section-canvas" id="canvas-footer"></canvas>
+  <span class="footer-logo" style="position:relative;z-index:2">CASTY</span>
+  <div class="footer-socials" style="position:relative;z-index:2">
+    <a href="#" class="social-icon" title="TikTok"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 106.33 6.33V8.69a8.18 8.18 0 004.78 1.52V6.73a4.85 4.85 0 01-1.01-.04z"/></svg></a>
+    <a href="#" class="social-icon" title="Instagram"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg></a>
+    <a href="#" class="social-icon" title="YouTube"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></a>
+  </div>
+  <div class="footer-copy" style="position:relative;z-index:2" data-ar="© 2024 Casty — جميع الحقوق محفوظة" data-en="© 2024 Casty — All Rights Reserved">© 2024 Casty — جميع الحقوق محفوظة</div>
+</footer>
+
+<!-- POPUP -->
+<div class="popup-overlay" id="popupOverlay" onclick="closePopupOutside(event)">
+  <div class="popup" id="popup">
+    <button class="popup-close" onclick="closePopupBtn()">✕</button>
+    <div class="popup-artist-name" id="popupName"></div>
+    <div class="popup-divider"></div>
+    <div class="voices-label" id="voicesLabel">الأصوات</div>
+    <div id="voicesList"></div>
+  </div>
+</div>
+
+<script>
+gsap.registerPlugin(ScrollTrigger);
+
+// ===== DATA =====
+const artistsData=Array.from({length:10},(_,i)=>({
+  id:i,nameAr:`الفنان ${i+1}`,nameEn:`Artist ${i+1}`,age:'',imgUrl:'',
+  characters:Array.from({length:6},(_,j)=>({nameAr:`شخصية ${j+1}`,nameEn:`Char ${j+1}`,img:''})),
+  voices:Array.from({length:4},(_,k)=>({nameAr:`صوت ${k+1}`,nameEn:`Voice ${k+1}`,src:''}))
+}));
+let currentLang='ar',activeAudios=[];
+
+// ===== LANG =====
+function toggleLang(){
+  currentLang=currentLang==='ar'?'en':'ar';
+  const html=document.documentElement;
+  html.setAttribute('lang',currentLang);html.setAttribute('dir',currentLang==='ar'?'rtl':'ltr');
+  document.getElementById('langBtn').textContent=currentLang==='ar'?'EN':'ع';
+  document.querySelectorAll('[data-ar]').forEach(el=>{
+    const t=el.getAttribute('data-'+currentLang);
+    if(t!==null){if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.placeholder=t;else el.textContent=t;}
+  });
+  const vi=document.getElementById('videoUrlInput');
+  if(vi)vi.placeholder=vi.getAttribute('data-'+currentLang+'-placeholder')||vi.placeholder;
+  document.getElementById('voicesLabel').textContent=currentLang==='ar'?'الأصوات':'Voice Samples';
+  renderArtists();
+}
+
+// ===== THREE.JS FACTORY =====
+function makeRenderer(canvas,w,h){
+  const r=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true});
+  r.setSize(w,h);r.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  return r;
+}
+
+// BG 1 — HERO: golden particle nebula + rings
+function initHero(){
+  const el=document.getElementById('hero');
+  const canvas=document.getElementById('canvas-hero');
+  const W=window.innerWidth,H=window.innerHeight;
+  const renderer=makeRenderer(canvas,W,H);
+  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(75,W/H,.1,1000);
+  camera.position.z=5;
+  const N=2000,pos=new Float32Array(N*3),col=new Float32Array(N*3);
+  for(let i=0;i<N;i++){
+    pos[i*3]=(Math.random()-.5)*22;pos[i*3+1]=(Math.random()-.5)*22;pos[i*3+2]=(Math.random()-.5)*12;
+    col[i*3]=.7+Math.random()*.3;col[i*3+1]=.55+Math.random()*.28;col[i*3+2]=.05+Math.random()*.12;
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('color',new THREE.BufferAttribute(col,3));
+  const particles=new THREE.Points(geo,new THREE.PointsMaterial({size:.022,vertexColors:true,transparent:true,opacity:.72}));
+  scene.add(particles);
+  for(let r=0;r<5;r++){
+    const rg=new THREE.TorusGeometry(1.8+r*1.3,.003,16,120);
+    const rm=new THREE.MeshBasicMaterial({color:0xc9a84c,transparent:true,opacity:.055-r*.008});
+    const ring=new THREE.Mesh(rg,rm);
+    ring.rotation.x=Math.PI/3+r*.25;ring.rotation.y=r*.55;scene.add(ring);
+  }
+  let mx=0,my=0;
+  window.addEventListener('mousemove',e=>{mx=(e.clientX/W-.5)*2;my=-(e.clientY/H-.5)*2;});
+  (function tick(){requestAnimationFrame(tick);const t=Date.now()*.00025;particles.rotation.y=t*.1+mx*.04;particles.rotation.x=t*.05+my*.03;scene.children.forEach((c,i)=>{if(i>0&&c.rotation)c.rotation.z+=.0004*(i+1);});renderer.render(scene,camera);})();
+  window.addEventListener('resize',()=>{camera.aspect=window.innerWidth/H;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,H);});
+}
+
+// BG 2 — ABOUT: DNA helix spirals
+function initAbout(){
+  const sec=document.getElementById('about');
+  const canvas=document.getElementById('canvas-about');
+  const W=sec.clientWidth,H=sec.clientHeight||500;
+  const renderer=makeRenderer(canvas,W,H);
+  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(70,W/H,.1,1000);
+  camera.position.z=6;
+  for(let s=0;s<2;s++){
+    for(let i=0;i<80;i++){
+      const t=i/80*Math.PI*6;
+      const x=(s===0?1:-1)*Math.cos(t)*2.5+(Math.random()-.5)*.3;
+      const y=(i/80-.5)*8;
+      const z=Math.sin(t)*2.5+(Math.random()-.5)*.3;
+      const sg=new THREE.SphereGeometry(.05,8,8);
+      const sm=new THREE.MeshBasicMaterial({color:s===0?0xc9a84c:0x8a6a1f,transparent:true,opacity:.4+Math.random()*.3});
+      const sp=new THREE.Mesh(sg,sm);
+      sp.position.set(x,y,z);scene.add(sp);
+    }
+  }
+  const pts=[];for(let i=0;i<=200;i++){const t=i/200*Math.PI*8;pts.push(new THREE.Vector3(Math.cos(t)*2.5,(i/200-.5)*8,Math.sin(t)*2.5));}
+  const lg=new THREE.BufferGeometry().setFromPoints(pts);
+  scene.add(new THREE.Line(lg,new THREE.LineBasicMaterial({color:0xc9a84c,transparent:true,opacity:.15})));
+  (function tick(){requestAnimationFrame(tick);scene.rotation.y+=.003;renderer.render(scene,camera);})();
+}
+
+// BG 3 — SERVICES: floating geometric shapes
+function initServices(){
+  const sec=document.getElementById('services');
+  const canvas=document.getElementById('canvas-services');
+  const W=sec.clientWidth,H=sec.clientHeight||600;
+  const renderer=makeRenderer(canvas,W,H);
+  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(70,W/H,.1,1000);
+  camera.position.z=8;
+  const shapes=[];
+  const geos=[new THREE.OctahedronGeometry(.5),new THREE.TetrahedronGeometry(.5),new THREE.IcosahedronGeometry(.4)];
+  for(let i=0;i<18;i++){
+    const g=geos[i%3];
+    const m=new THREE.MeshBasicMaterial({color:0xc9a84c,wireframe:true,transparent:true,opacity:.06+Math.random()*.08});
+    const mesh=new THREE.Mesh(g,m);
+    mesh.position.set((Math.random()-.5)*16,(Math.random()-.5)*12,(Math.random()-.5)*4);
+    mesh.userData={rx:Math.random()*.01-.005,ry:Math.random()*.012-.006};
+    scene.add(mesh);shapes.push(mesh);
+  }
+  (function tick(){requestAnimationFrame(tick);shapes.forEach(s=>{s.rotation.x+=s.userData.rx;s.rotation.y+=s.userData.ry;});renderer.render(scene,camera);})();
+}
+
+// BG 4 — SHOWREEL: audio waveform rings
+function initShowreel(){
+  const sec=document.getElementById('showreel');
+  const canvas=document.getElementById('canvas-showreel');
+  const W=sec.clientWidth,H=sec.clientHeight||600;
+  const renderer=makeRenderer(canvas,W,H);
+  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(70,W/H,.1,1000);
+  camera.position.z=5;
+  const rings=[];
+  for(let r=0;r<12;r++){
+    const pts=[];const segs=80;
+    for(let i=0;i<=segs;i++){const a=i/segs*Math.PI*2;pts.push(new THREE.Vector3(Math.cos(a)*(1+r*.4),Math.sin(a)*(1+r*.4),0));}
+    const geo=new THREE.BufferGeometry().setFromPoints(pts);
+    const line=new THREE.Line(geo,new THREE.LineBasicMaterial({color:0xc9a84c,transparent:true,opacity:.04+r*.007}));
+    line.userData={baseY:pts.map(p=>p.y),spd:.5+r*.15,amp:.08+r*.02};
+    scene.add(line);rings.push(line);
+  }
+  (function tick(){requestAnimationFrame(tick);const t=Date.now()*.001;
+    rings.forEach((ring,ri)=>{
+      const pos=ring.geometry.attributes.position;const segs=80;
+      for(let i=0;i<=segs;i++){const a=i/segs*Math.PI*2;const wave=Math.sin(a*6+t*ring.userData.spd)*ring.userData.amp;pos.setX(i,(Math.cos(a)*(1+ri*.4))+wave);pos.setY(i,(Math.sin(a)*(1+ri*.4))+wave);}
+      pos.needsUpdate=true;
+    });
+    scene.rotation.z+=.002;renderer.render(scene,camera);
+  })();
+}
+
+// BG 5 — ARTISTS: moving sound wave lines
+function initArtists(){
+  const sec=document.getElementById('artists');
+  const canvas=document.getElementById('canvas-artists');
+  const W=sec.clientWidth,H=Math.max(sec.clientHeight,700);
+  const renderer=makeRenderer(canvas,W,H);
+  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(75,W/H,.1,1000);
+  camera.position.z=4;
+  const lines=[];
+  for(let w=0;w<14;w++){
+    const pts=[];for(let p=0;p<=140;p++)pts.push(new THREE.Vector3((p/140-.5)*20,Math.sin(p*.15+w)*(0.15+w*.06)+(w-7)*.38,0));
+    const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xc9a84c,transparent:true,opacity:.018+w*.003}));
+    scene.add(line);lines.push(line);
+  }
+  (function tick(){requestAnimationFrame(tick);const t=Date.now()*.001;
+    lines.forEach((line,i)=>{const pos=line.geometry.attributes.position;for(let p=0;p<=140;p++)pos.setY(p,Math.sin(p*.15+i+t*.35)*(0.15+i*.06)+(i-7)*.38);pos.needsUpdate=true;});
+    renderer.render(scene,camera);
+  })();
+}
+
+// BG 6 — FOOTER: subtle starfield
+function initFooter(){
+  const sec=document.querySelector('footer');
+  const canvas=document.getElementById('canvas-footer');
+  const W=sec.clientWidth,H=sec.clientHeight||200;
+  const renderer=makeRenderer(canvas,W,H);
+  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(70,W/H,.1,1000);
+  camera.position.z=3;
+  const N=400,pos=new Float32Array(N*3);
+  for(let i=0;i<N;i++){pos[i*3]=(Math.random()-.5)*12;pos[i*3+1]=(Math.random()-.5)*4;pos[i*3+2]=(Math.random()-.5)*4;}
+  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const pts=new THREE.Points(geo,new THREE.PointsMaterial({color:0xc9a84c,size:.018,transparent:true,opacity:.3}));
+  scene.add(pts);
+  (function tick(){requestAnimationFrame(tick);pts.rotation.y+=.0008;renderer.render(scene,camera);})();
+}
+
+// ===== VIDEO LOADER =====
+function loadVideo(){
+  const url=document.getElementById('videoUrlInput').value.trim();
+  if(!url)return;
+  const container=document.getElementById('videoContainer');
+  // YouTube embed
+  const ytMatch=url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if(ytMatch){
+    container.innerHTML=`<iframe style="width:100%;aspect-ratio:16/9;border:none;display:block" src="https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&rel=0" allow="autoplay;encrypted-media" allowfullscreen></iframe>`;
+    return;
+  }
+  // Direct video (telegram/mp4)
+  container.innerHTML=`<video controls autoplay style="width:100%;display:block;max-height:500px;background:#000" src="${url}">متصفحك لا يدعم تشغيل الفيديو</video>`;
+}
+
+// ===== ARTISTS RENDER =====
+function renderArtists(){
+  const grid=document.getElementById('artistsGrid');grid.innerHTML='';
+  artistsData.forEach((a,i)=>{
+    const name=currentLang==='ar'?a.nameAr:a.nameEn;
+    const card=document.createElement('div');card.className='artist-card';
+    const imgHtml=a.imgUrl?`<img src="${a.imgUrl}" alt="${name}" onerror="this.parentElement.innerHTML='<div class=card-img-placeholder>🎙️</div>'">`:`<div class="card-img-placeholder">🎙️</div>`;
+    const charsHtml=a.characters.slice(0,4).map(c=>`<div class="char-chip">${c.img?`<img src="${c.img}" alt="">`:`<div class="char-placeholder">✦</div>`}<span>${currentLang==='ar'?c.nameAr:c.nameEn}</span></div>`).join('');
+    card.innerHTML=`<div class="card-img-wrap">${imgHtml}<div class="card-img-overlay"></div></div><div class="card-body"><div class="card-name">${name}</div><div class="card-age">${currentLang==='ar'?'العمر':'Age'}: <span>${a.age||'—'}</span></div><div class="chars-row">${charsHtml}</div><button class="card-listen-btn" onclick="openPopup(${i})">▶ ${currentLang==='ar'?'استمع للأصوات':'Listen to Voices'}</button></div>`;
+    grid.appendChild(card);
+    gsap.fromTo(card,{opacity:0,y:50},{opacity:1,y:0,duration:.7,ease:'power3.out',scrollTrigger:{trigger:card,start:'top 90%',once:true},delay:i*.055});
+  });
+}
+
+// ===== POPUP =====
+function openPopup(idx){
+  stopAllAudio();
+  const a=artistsData[idx];
+  document.getElementById('popupName').textContent=currentLang==='ar'?a.nameAr:a.nameEn;
+  document.getElementById('popup').dataset.idx=idx;
+  document.getElementById('voicesLabel').textContent=currentLang==='ar'?'الأصوات':'Voice Samples';
+  document.getElementById('voicesList').innerHTML=a.voices.map((v,vi)=>`
+    <div class="voice-item">
+      <button class="play-btn" id="pb${vi}" onclick="togglePlay(${idx},${vi})">▶</button>
+      <div style="flex:1;min-width:0">
+        <input class="voice-name-input" value="${currentLang==='ar'?v.nameAr:v.nameEn}" placeholder="${currentLang==='ar'?'اسم الصوت...':'Voice name...'}" onchange="updateVName(${idx},${vi},this.value)">
+        <div class="audio-bar" onclick="seekAudio(${idx},${vi},event)"><div class="audio-progress" id="pr${vi}"></div></div>
+      </div>
+      <label class="upload-label">${currentLang==='ar'?'رفع':'Upload'}<input type="file" accept="audio/*" style="display:none" onchange="loadAudio(${idx},${vi},this)"></label>
+      <audio id="au${vi}"></audio>
+    </div>`).join('');
+  document.getElementById('popupOverlay').classList.add('active');
+}
+function closePopupOutside(e){if(e.target===document.getElementById('popupOverlay')){stopAllAudio();document.getElementById('popupOverlay').classList.remove('active');}}
+function closePopupBtn(){stopAllAudio();document.getElementById('popupOverlay').classList.remove('active');}
+function loadAudio(ai,vi,inp){if(!inp.files[0])return;artistsData[ai].voices[vi].src=URL.createObjectURL(inp.files[0]);document.getElementById('au'+vi).src=artistsData[ai].voices[vi].src;}
+function togglePlay(ai,vi){
+  const audio=document.getElementById('au'+vi),btn=document.getElementById('pb'+vi);
+  if(!audio.src&&artistsData[ai].voices[vi].src)audio.src=artistsData[ai].voices[vi].src;
+  if(!audio.src)return;
+  if(audio.paused){stopAllAudio();audio.play();btn.textContent='⏸';btn.classList.add('playing');activeAudios.push({audio,btn,vi});
+    audio.ontimeupdate=()=>{if(audio.duration)document.getElementById('pr'+vi).style.width=(audio.currentTime/audio.duration*100)+'%';};
+    audio.onended=()=>{btn.textContent='▶';btn.classList.remove('playing');document.getElementById('pr'+vi).style.width='0%';};}
+  else{audio.pause();btn.textContent='▶';btn.classList.remove('playing');}
+}
+function seekAudio(ai,vi,e){const audio=document.getElementById('au'+vi);if(!audio.src||!audio.duration)return;audio.currentTime=(e.offsetX/e.currentTarget.clientWidth)*audio.duration;}
+function stopAllAudio(){activeAudios.forEach(({audio,btn,vi})=>{audio.pause();btn.textContent='▶';btn.classList.remove('playing');});activeAudios=[];}
+function updateVName(ai,vi,val){if(currentLang==='ar')artistsData[ai].voices[vi].nameAr=val;else artistsData[ai].voices[vi].nameEn=val;}
+
+// ===== CURSOR =====
+const cursorEl=document.getElementById('cursor'),followerEl=document.getElementById('cursorFollower');
+let mx=0,my=0,fx=0,fy=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cursorEl.style.transform=`translate(${mx-5}px,${my-5}px)`;});
+(function af(){fx+=(mx-fx)*.11;fy+=(my-fy)*.11;followerEl.style.transform=`translate(${fx-17}px,${fy-17}px)`;requestAnimationFrame(af);})();
+
+// ===== GSAP HERO =====
+function initHeroAnim(){
+  gsap.to('.hero-eyebrow',{opacity:1,y:0,duration:1,ease:'power3.out',delay:.3});
+  gsap.to('.hero-title',{opacity:1,y:0,duration:1.2,ease:'power3.out',delay:.5});
+  gsap.to('.hero-divider',{opacity:1,duration:1,delay:.9});
+  gsap.to('.hero-sub',{opacity:1,y:0,duration:1,ease:'power3.out',delay:1});
+  gsap.to('.hero-tags',{opacity:1,y:0,duration:1,ease:'power3.out',delay:1.1});
+  gsap.to('.btn-cta',{opacity:1,duration:1,delay:1.3});
+  gsap.fromTo('.about-inner',{opacity:0,y:50},{opacity:1,y:0,duration:1,ease:'power3.out',scrollTrigger:{trigger:'#about',start:'top 80%',once:true}});
+  document.querySelectorAll('.service-card').forEach((c,i)=>{
+    gsap.fromTo(c,{opacity:0,y:40,scale:.96},{opacity:1,y:0,scale:1,duration:.7,ease:'power3.out',scrollTrigger:{trigger:c,start:'top 90%',once:true},delay:i*.07});
+  });
+  gsap.fromTo('.video-wrap',{opacity:0,y:40},{opacity:1,y:0,duration:1,ease:'power3.out',scrollTrigger:{trigger:'#showreel',start:'top 75%',once:true}});
+}
+
+// ===== INIT =====
+window.addEventListener('load',()=>{
+  initHero();
+  setTimeout(initAbout,100);
+  setTimeout(initServices,150);
+  setTimeout(initShowreel,200);
+  setTimeout(initArtists,250);
+  setTimeout(initFooter,300);
+  renderArtists();
+  initHeroAnim();
+});
+</script>
+</body>
+</html>
